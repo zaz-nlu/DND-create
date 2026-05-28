@@ -1,0 +1,687 @@
+/* ============================================================
+   职业详情弹窗 — Class Modal (Dark Grimoire Style)
+   ============================================================ */
+
+/* ── 遮罩 ── */
+.class-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(4, 3, 12, 0.88);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+@media (min-width: 640px) {
+  .class-overlay {
+    align-items: center;
+    padding: 24px;
+  }
+}
+
+/* ── 弹窗主体 ── */
+.class-modal {
+  width: 100%;
+  max-width: 600px;
+  max-height: 94dvh;
+  display: flex;
+  flex-direction: column;
+  background: #0D0B1E;
+  border: 1px solid rgba(201,168,76,0.22);
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  overflow: hidden;
+  box-shadow:
+    0 -4px 40px rgba(0,0,0,0.7),
+    0 0 0 1px rgba(201,168,76,0.08) inset;
+}
+
+@media (min-width: 640px) {
+  .class-modal {
+    border: 1px solid rgba(201,168,76,0.22);
+    border-radius: 12px;
+    max-height: 88dvh;
+  }
+}
+
+/* ── 彩色顶部条 ── */
+.class-modal-accent {
+  height: 4px;
+  flex-shrink: 0;
+  background: var(--class-color, #3A7A5A);
+  box-shadow: 0 0 16px var(--class-color, #3A7A5A);
+}
+
+/* ── 可滚动内容区 ── */
+.class-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201,168,76,0.2) transparent;
+}
+
+.class-modal-body::-webkit-scrollbar { width: 3px; }
+.class-modal-body::-webkit-scrollbar-thumb {
+  background: rgba(201,168,76,0.25);
+  border-radius: 2px;
+}
+
+/* ── Hero 区 ── */
+.class-hero {
+  padding: 24px 20px 18px;
+  background: linear-gradient(180deg,
+    rgba(var(--class-rgb, 58 122 90), 0.12) 0%,
+    transparent 100%);
+  border-bottom: 1px solid rgba(201,168,76,0.1);
+}
+
+.class-hero-title {
+  font-family: var(--font-deco);
+  font-size: clamp(24px, 6vw, 32px);
+  color: var(--gold-bright);
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  margin-bottom: 2px;
+}
+
+.class-hero-sub {
+  font-family: var(--font-title);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+.class-hero-tagline {
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-style: italic;
+  color: var(--gold-light);
+  line-height: 1.5;
+  opacity: 0.85;
+}
+
+/* ── 核心属性条 ── */
+.class-stats-row {
+  display: flex;
+  gap: 8px;
+  padding: 14px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+
+.class-stats-row::-webkit-scrollbar { display: none; }
+
+.class-stat {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(201,168,76,0.15);
+  border-radius: 8px;
+  min-width: 60px;
+}
+
+.class-stat-label {
+  font-family: var(--font-title);
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.class-stat-value {
+  font-family: var(--font-title);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gold);
+  line-height: 1.2;
+}
+
+.class-stat.highlight {
+  background: rgba(201,168,76,0.08);
+  border-color: rgba(201,168,76,0.3);
+}
+
+.class-stat.highlight .class-stat-value {
+  color: var(--gold-bright);
+}
+
+/* ── Section 通用 ── */
+.class-section {
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.class-section:last-child { border-bottom: none; }
+
+.class-section-title {
+  font-family: var(--font-title);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.class-section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(201,168,76,0.15);
+}
+
+/* ── Lore ── */
+.class-lore {
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--text-muted);
+  white-space: pre-line;
+}
+
+/* ── 特质 chips 网格 ── */
+.class-traits-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.class-trait-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.class-trait-key {
+  font-family: var(--font-title);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  padding-top: 3px;
+  width: 52px;
+}
+
+.class-trait-vals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.class-trait-chip {
+  font-family: var(--font-title);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding: 3px 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.class-skill-note {
+  font-family: var(--font-title);
+  font-size: 10px;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-top: 4px;
+  padding-left: 60px;
+}
+
+/* ── 职业特性折叠卡 ── */
+.class-feature {
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.class-feature:last-child { margin-bottom: 0; }
+
+.class-feature-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  cursor: pointer;
+  background: rgba(255,255,255,0.025);
+  transition: background 0.2s ease;
+  -webkit-user-select: none;
+  user-select: none;
+  min-height: 48px;
+}
+
+.class-feature-header:active {
+  background: rgba(201,168,76,0.06);
+}
+
+.class-feature-name-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.class-feature-name {
+  font-family: var(--font-title);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gold-light);
+  line-height: 1.2;
+}
+
+.class-feature-name-en {
+  font-family: var(--font-title);
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+}
+
+.class-feature-chevron {
+  font-size: 11px;
+  color: var(--text-dim);
+  transition: transform 0.25s ease;
+  flex-shrink: 0;
+}
+
+.class-feature-chevron.open {
+  transform: rotate(180deg);
+  color: var(--gold);
+}
+
+.class-feature-body {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.35s ease;
+}
+
+.class-feature-body.open {
+  max-height: 1200px;
+}
+
+.class-feature-desc {
+  padding: 12px 14px 14px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--text-muted);
+  white-space: pre-line;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+/* ── 重要里程碑列表 ── */
+.class-milestone {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  align-items: flex-start;
+}
+
+.class-milestone:last-child { border-bottom: none; }
+
+.class-milestone-level {
+  flex-shrink: 0;
+  font-family: var(--font-title);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gold);
+  background: rgba(201,168,76,0.1);
+  border: 1px solid rgba(201,168,76,0.2);
+  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.class-milestone-info { flex: 1; min-width: 0; }
+
+.class-milestone-name {
+  font-family: var(--font-title);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gold-light);
+  line-height: 1.3;
+  margin-bottom: 3px;
+}
+
+.class-milestone-name-en {
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+  font-family: var(--font-title);
+}
+
+.class-milestone-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-top: 3px;
+}
+
+/* ── 子职业卡片 ── */
+.subclass-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.subclass-card {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.subclass-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  min-height: 56px;
+  transition: background 0.2s;
+}
+
+.subclass-card-header:active {
+  background: rgba(255,255,255,0.04);
+}
+
+.subclass-accent {
+  width: 4px;
+  height: 36px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  background: var(--sc-color, #3A7A5A);
+  box-shadow: 0 0 8px var(--sc-color, #3A7A5A);
+  margin-right: 12px;
+}
+
+.subclass-title-wrap { flex: 1; min-width: 0; }
+
+.subclass-name {
+  font-family: var(--font-title);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gold-light);
+  line-height: 1.2;
+}
+
+.subclass-name-en {
+  font-family: var(--font-title);
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  margin-top: 1px;
+  display: block;
+}
+
+.subclass-tagline {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-dim);
+  margin-top: 2px;
+  display: block;
+}
+
+.subclass-chevron {
+  font-size: 11px;
+  color: var(--text-dim);
+  transition: transform 0.25s ease;
+  flex-shrink: 0;
+}
+
+.subclass-chevron.open {
+  transform: rotate(180deg);
+  color: var(--gold);
+}
+
+.subclass-body {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.4s ease;
+}
+
+.subclass-body.open {
+  max-height: 4000px;
+}
+
+.subclass-desc {
+  padding: 12px 16px 8px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-muted);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  font-style: italic;
+}
+
+.subclass-feature {
+  margin: 0 16px 8px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 6px;
+}
+
+.subclass-feature:last-of-type { margin-bottom: 14px; }
+
+.subclass-feature-title {
+  font-family: var(--font-title);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gold-light);
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+
+.subclass-feature-level {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+}
+
+.subclass-feature-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.65;
+  white-space: pre-line;
+}
+
+/* ── 起始装备 ── */
+.class-equip {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.class-equip-option {
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.class-equip-label {
+  font-family: var(--font-title);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  margin-bottom: 4px;
+}
+
+.class-equip-text {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+/* ── 底部操作区 ── */
+.class-modal-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 10px;
+  padding: 14px 16px;
+  padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  background: rgba(8, 6, 20, 0.98);
+  border-top: 1px solid rgba(201,168,76,0.12);
+}
+
+.class-btn-select {
+  flex: 1;
+  font-family: var(--font-title);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #1A0F05;
+  background: linear-gradient(135deg, var(--gold), var(--gold-light));
+  border-radius: var(--r);
+  min-height: 48px;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.class-btn-select:active {
+  transform: scale(0.97);
+}
+
+.class-btn-select.already-selected {
+  background: linear-gradient(135deg, #4A9E8A, #5EB8A2);
+}
+
+.class-btn-close {
+  font-family: var(--font-title);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 0 20px;
+  border: 1px solid var(--border-dark);
+  border-radius: var(--r);
+  min-height: 48px;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.class-btn-close:hover {
+  color: var(--text);
+  border-color: var(--border-gold);
+}
+
+.class-btn-close:active { transform: scale(0.97); }
+
+/* ── 进入/离开动画 ── */
+.class-modal-enter-active {
+  transition: opacity 0.25s ease;
+}
+
+.class-modal-enter-active .class-modal {
+  animation: classSlideUp 0.4s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+
+.class-modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.class-modal-leave-active .class-modal {
+  animation: classSlideDown 0.2s ease forwards;
+}
+
+.class-modal-enter-from,
+.class-modal-leave-to { opacity: 0; }
+
+@keyframes classSlideUp {
+  from { transform: translateY(60px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes classSlideDown {
+  to { transform: translateY(60px); opacity: 0; }
+}
+
+@media (min-width: 640px) {
+  @keyframes classSlideUp {
+    from { transform: scaleY(0.85); opacity: 0; }
+    to   { transform: scaleY(1);    opacity: 1; }
+  }
+  @keyframes classSlideDown {
+    to { transform: scaleY(0.85); opacity: 0; }
+  }
+}
+
+/* ── 子职业选择新增样式 ── */
+.subclass-locked-notice {
+  color: var(--text-dim, #888);
+  font-size: 12px;
+  border: 1px dashed rgba(201, 168, 76, 0.24);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+}
+
+.subclass-locked-notice--info {
+  color: var(--gold, #c9a84c);
+  border-color: rgba(201, 168, 76, 0.4);
+  background: rgba(201, 168, 76, 0.06);
+}
+
+.subclass-card--selected {
+  border-color: rgba(201, 168, 76, 0.6) !important;
+  background: rgba(201, 168, 76, 0.07) !important;
+}
+
+.subclass-selected-mark {
+  color: var(--gold, #c9a84c);
+  font-size: 14px;
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+.subclass-pick-btn {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px 0;
+  border-radius: 6px;
+  border: 1px solid rgba(201, 168, 76, 0.4);
+  background: rgba(201, 168, 76, 0.08);
+  color: var(--gold, #c9a84c);
+  font-family: var(--font-title, sans-serif);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.subclass-pick-btn:hover {
+  background: rgba(201, 168, 76, 0.16);
+}
+
+.subclass-pick-btn--active {
+  background: rgba(201, 168, 76, 0.18);
+  border-color: var(--gold, #c9a84c);
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .class-modal-enter-active .class-modal,
+  .class-modal-leave-active .class-modal { animation: none; }
+}
