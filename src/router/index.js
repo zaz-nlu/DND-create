@@ -11,6 +11,7 @@ import AbilityScores    from '../views/AbilityScores.vue'
 import HpSetup          from '../views/HpSetup.vue'
 import EquipmentView    from '../views/EquipmentView.vue'
 import CharacterSheet   from '../views/CharacterSheet.vue'
+import PrintSheet       from '../views/PrintSheet.vue'
 
 export default createRouter({
   history: createWebHistory(),
@@ -27,5 +28,6 @@ export default createRouter({
     { path: '/hp',          component: HpSetup          },
     { path: '/equipment',   component: EquipmentView    },
     { path: '/sheet',       component: CharacterSheet   },
+    { path: '/print',       component: PrintSheet       },
   ],
 })

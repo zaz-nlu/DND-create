@@ -403,6 +403,9 @@ function startNewCharacter() {
     </section>
 
     <div class="sheet-actions">
+      <button class="sheet-export-btn" type="button" @click="router.push('/print')">
+        🖨 导出角色卡
+      </button>
       <button class="sheet-new-btn" type="button" @click="startNewCharacter">
         + 创建新角色
       </button>
@@ -911,6 +914,24 @@ function startNewCharacter() {
   display: flex;
   justify-content: center;
 }
+
+.sheet-export-btn {
+  font-family: var(--font-title);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #1a1000;
+  background: var(--gold-light, #c9a84c);
+  border: 1px solid var(--gold-light, #c9a84c);
+  padding: 0 28px;
+  border-radius: var(--r);
+  min-height: 44px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.sheet-export-btn:hover { opacity: 0.85; }
 
 .sheet-new-btn {
   font-family: var(--font-title);

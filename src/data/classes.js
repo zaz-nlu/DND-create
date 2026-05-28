@@ -1473,7 +1473,7 @@ export const builtinClasses = [
     tagline: '以功力与武艺究天人之际的修行者',
     color: '#6B5B8A',
     subclassLevel: 3,
-    image: new URL('../assets/images/youxia.png', import.meta.url).href,
+    image: new URL('../assets/images/wuseng.png', import.meta.url).href,
     lore: '武僧用严格的战斗训练与精神修行究天人之际，通己身之变。他们积蓄和引导这种力量，创造出诸般非凡乃至超自然的效应。',
     fullLore: `武僧用严格的战斗训练与精神修行究天人之际，通己身之变。不同的武僧会给这股力量赋予不同的概念，或吐纳，或内功，或阳气，或灵明，或真我。无论是打出惊世神功，或是显于灵犀一动，这种力量都是武僧威能的来源。
 
