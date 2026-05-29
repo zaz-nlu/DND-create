@@ -1138,7 +1138,7 @@ function goNext() {
 
 .spells-footer {
   position: fixed;
-  inset: auto 0 0;
+  inset: auto 0 var(--pcb-height, 0px);
   z-index: 70;
   display: flex;
   align-items: center;

@@ -3,71 +3,100 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { backgrounds } from '../data/backgrounds.js'
 import { classes } from '../data/classes.js'
-import { races } from '../data/races.js'
-import { findSpellById } from '../data/spells.js'
+import { findFightingStyleFeatById } from '../data/fightingStyleFeats.js'
 import { findGeneralFeatById } from '../data/generalFeats.js'
 import { findOriginFeatById } from '../data/originFeats.js'
-import { findFightingStyleFeatById } from '../data/fightingStyleFeats.js'
+import { races } from '../data/races.js'
+import { findSpellById } from '../data/spells.js'
 import { character } from '../store/character.js'
-import { ABILITY_IDS } from '../utils/abilities.js'
+import { ABILITY_EN, ABILITY_IDS } from '../utils/abilities.js'
 import { getAbilityTotalRows } from '../utils/abilityTotals.js'
-import { calculateCharacterAc, getEquippedArmor } from '../utils/equipment.js'
+import { calculateCharacterAc, getEquippedArmor, hasShieldTraining } from '../utils/equipment.js'
 import { getRequirementsForLevel } from '../utils/progression.js'
 
 const router = useRouter()
 
-const selectedRace = computed(() => races.find(r => r.id === character.race.id) ?? null)
-const selectedClass = computed(() => classes.find(c => c.id === character.class.id) ?? null)
-const selectedBackground = computed(() => backgrounds.find(b => b.id === character.background.id) ?? null)
-const selectedSubclass = computed(() => {
-  const sub = character.class.subclassId
-  return selectedClass.value?.subclasses?.find(s => s.id === sub) ?? null
-})
+function printSheet() {
+  globalThis.print?.()
+}
+
+const SKILL_ABILITY = {
+  运动: '力量',
+  体操: '敏捷',
+  巧手: '敏捷',
+  隐匿: '敏捷',
+  奥秘: '智力',
+  历史: '智力',
+  调查: '智力',
+  自然: '智力',
+  宗教: '智力',
+  驯兽: '感知',
+  洞悉: '感知',
+  医药: '感知',
+  察觉: '感知',
+  求生: '感知',
+  欺瞒: '魅力',
+  威吓: '魅力',
+  表演: '魅力',
+  游说: '魅力',
+}
+
+const selectedRace = computed(() => races.find(race => race.id === character.race.id) ?? null)
+const selectedClass = computed(() => classes.find(cls => cls.id === character.class.id) ?? null)
+const selectedBackground = computed(() => backgrounds.find(bg => bg.id === character.background.id) ?? null)
+const selectedSubclass = computed(() =>
+  selectedClass.value?.subclasses?.find(subclass => subclass.id === character.class.subclassId) ?? null
+)
 
 const level = computed(() => character.level ?? 1)
 const profBonus = computed(() => Math.ceil(level.value / 4) + 1)
 const abilityRows = computed(() => getAbilityTotalRows(character))
-const abilityMap = computed(() => Object.fromEntries(abilityRows.value.map(r => [r.id, r])))
+const abilityMap = computed(() => Object.fromEntries(abilityRows.value.map(row => [row.id, row])))
 
-function sign(n) { return (n >= 0 ? '+' : '') + n }
+function signed(value) {
+  const number = Number(value) || 0
+  return `${number >= 0 ? '+' : ''}${number}`
+}
 
 const classSaves = computed(() => selectedClass.value?.saves ?? [])
-const savingThrows = computed(() =>
+const savingRows = computed(() =>
   ABILITY_IDS.map(id => {
     const row = abilityMap.value[id]
     const isProficient = classSaves.value.includes(id)
-    const bonus = (row?.mod ?? 0) + (isProficient ? profBonus.value : 0)
-    return { id, isProficient, text: sign(bonus) }
+    const total = (row?.mod ?? 0) + (isProficient ? profBonus.value : 0)
+    return { id, total, text: signed(total), isProficient }
   })
 )
 
-const SKILL_ABILITY = {
-  '运动': '力量',
-  '体操': '敏捷', '巧手': '敏捷', '隐匿': '敏捷',
-  '奥秘': '智力', '历史': '智力', '调查': '智力', '自然': '智力', '宗教': '智力',
-  '驯兽': '感知', '洞悉': '感知', '医学': '感知', '察觉': '感知', '求生': '感知',
-  '欺瞒': '魅力', '威吓': '魅力', '表演': '魅力', '游说': '魅力',
-}
-
-const skillData = computed(() => {
-  const bgSkills = selectedBackground.value?.skills ?? []
+const skillRows = computed(() => {
+  const backgroundSkills = selectedBackground.value?.skills ?? []
   const classSkills = character.class.choices?.skills ?? []
-  const raceSkill = character.race.choices?.skillProficiency ? [character.race.choices.skillProficiency] : []
-  return Object.fromEntries(
-    Object.entries(SKILL_ABILITY).map(([skill, ability]) => {
-      const row = abilityMap.value[ability]
-      const isProficient = [...bgSkills, ...classSkills, ...raceSkill].includes(skill)
-      const expertLevel = character.skills?.[skill] ?? null
-      const mult = expertLevel === 'expert' ? 2 : (isProficient || expertLevel === 'proficient') ? 1 : 0
-      const total = (row?.mod ?? 0) + mult * profBonus.value
-      return [skill, { isProficient: isProficient || !!expertLevel, text: sign(total) }]
-    })
-  )
+  const raceSkill = character.race.choices?.skillProficiency
+    ? [character.race.choices.skillProficiency]
+    : []
+
+  return Object.entries(SKILL_ABILITY).map(([skill, ability]) => {
+    const row = abilityMap.value[ability]
+    const baseProficient = [...backgroundSkills, ...classSkills, ...raceSkill].includes(skill)
+    const expertLevel = character.skills?.[skill] ?? null
+    const multiplier = expertLevel === 'expert' ? 2 : (baseProficient || expertLevel === 'proficient') ? 1 : 0
+    const total = (row?.mod ?? 0) + multiplier * profBonus.value
+    return {
+      skill,
+      ability,
+      isProficient: baseProficient || Boolean(expertLevel),
+      text: signed(total),
+    }
+  })
 })
 
+const skillsByAbility = computed(() =>
+  Object.fromEntries(
+    ABILITY_IDS.map(ability => [ability, skillRows.value.filter(row => row.ability === ability)])
+  )
+)
+
 const dexMod = computed(() => abilityMap.value['敏捷']?.mod ?? 0)
-const equippedArmor = computed(() => getEquippedArmor(character))
-const equippedShieldText = computed(() => character.equipment?.shield ? '盾牌' : '')
 const acBase = computed(() =>
   calculateCharacterAc({
     character,
@@ -76,465 +105,919 @@ const acBase = computed(() =>
     abilityMap: abilityMap.value,
   })
 )
+const equippedArmor = computed(() => getEquippedArmor(character))
+const shieldText = computed(() => {
+  if (!character.equipment?.shield) return '未持用盾牌'
+  return hasShieldTraining(selectedClass.value) ? '盾牌 +2' : '盾牌（未受训）'
+})
 const speed = computed(() => selectedRace.value?.speed ?? 30)
-const size = computed(() => (selectedRace.value?.size ?? '中型').split('（')[0].split('或')[0].trim())
+const size = computed(() => {
+  const value = selectedRace.value?.size
+  if (!value) return '中型'
+  return String(value).split('（')[0].split('或')[0].trim()
+})
 const passivePerception = computed(() => {
-  const percVal = skillData.value['察觉']
-  if (!percVal) return 10 + (abilityMap.value['感知']?.mod ?? 0)
-  return 10 + parseInt(percVal.text)
+  const row = skillRows.value.find(skill => skill.skill === '察觉')
+  return row ? 10 + Number(row.text) : 10 + (abilityMap.value['感知']?.mod ?? 0)
 })
 
+const armorTraining = computed(() => selectedClass.value?.armor ?? [])
+const weaponTraining = computed(() => selectedClass.value?.weapons ?? [])
+const toolTraining = computed(() => selectedClass.value?.tools ?? [])
+const languages = computed(() => selectedRace.value?.mechanics?.languages ?? ['通用语'])
+
 const classFeatures = computed(() => {
-  const f = []
-  if (selectedClass.value?.level1Features) f.push(...selectedClass.value.level1Features.map(x => ({ ...x, atLevel: 1 })))
-  if (selectedClass.value?.notableFeatures) f.push(...selectedClass.value.notableFeatures.filter(x => x.level <= level.value).map(x => ({ ...x, atLevel: x.level })))
-  if (selectedSubclass.value?.features) f.push(...selectedSubclass.value.features.filter(x => x.level <= level.value).map(x => ({ ...x, atLevel: x.level })))
-  return f.sort((a, b) => a.atLevel - b.atLevel)
+  const rows = []
+  if (selectedClass.value?.level1Features) {
+    rows.push(...selectedClass.value.level1Features.map(feature => ({ ...feature, level: 1 })))
+  }
+  if (selectedClass.value?.notableFeatures) {
+    rows.push(...selectedClass.value.notableFeatures.filter(feature => feature.level <= level.value))
+  }
+  if (selectedSubclass.value?.features) {
+    rows.push(...selectedSubclass.value.features.filter(feature => feature.level <= level.value))
+  }
+  return rows.sort((a, b) => (a.level ?? 1) - (b.level ?? 1))
 })
 
 const raceTraits = computed(() => selectedRace.value?.traits ?? [])
 
-const featSlots = computed(() => {
+const generalFeatSlots = computed(() => {
   const cls = selectedClass.value
   if (!cls) return []
-  if (cls.progression) return getRequirementsForLevel(cls, level.value).filter(r => r.kind === 'generalFeat' && level.value >= (r.minLevel ?? 4))
+  if (cls.progression) {
+    return getRequirementsForLevel(cls, level.value)
+      .filter(req => req.kind === 'generalFeat' && level.value >= (req.minLevel ?? 4))
+  }
   return level.value >= 4 ? [{ id: 'generalFeatId' }] : []
 })
-const generalFeats = computed(() => featSlots.value.map(s => findGeneralFeatById(character.class.choices?.[s.id])).filter(Boolean))
+const generalFeats = computed(() =>
+  generalFeatSlots.value
+    .map(slot => findGeneralFeatById(character.class.choices?.[slot.id]))
+    .filter(Boolean)
+)
 const originFeat = computed(() => {
-  const bgFeat = selectedBackground.value?.feat
-  if (bgFeat) return typeof bgFeat === 'object' ? bgFeat.name : bgFeat
-  if (character.race.id === 'human') { const f = findOriginFeatById(character.race.choices?.originFeatId); return f?.name ?? null }
+  const feat = selectedBackground.value?.feat
+  if (feat) return typeof feat === 'object' ? feat.name : feat
+  if (character.race.id === 'human') {
+    return findOriginFeatById(character.race.choices?.originFeatId)?.name ?? null
+  }
   return null
 })
 const fightingStyles = computed(() => {
   if (!selectedClass.value?.progression) return []
   return getRequirementsForLevel(selectedClass.value, level.value)
-    .filter(r => r.kind === 'fightingStyleFeat')
-    .map(s => findFightingStyleFeatById(character.class.choices?.[s.id]))
+    .filter(req => req.kind === 'fightingStyleFeat')
+    .map(slot => findFightingStyleFeatById(character.class.choices?.[slot.id]))
     .filter(Boolean)
-})
-
-const armorProf = computed(() => selectedClass.value?.armor ?? [])
-const languages = computed(() => selectedRace.value?.mechanics?.languages ?? ['通用语'])
-
-const isSpellcaster = computed(() => !!(selectedClass.value?.spellcastingProgression || selectedClass.value?.pactMagicProgression))
-const spellAbility = computed(() => selectedClass.value?.spellcastingAbility ?? null)
-const spellDC = computed(() => spellAbility.value ? 8 + profBonus.value + (abilityMap.value[spellAbility.value]?.mod ?? 0) : null)
-const spellAttack = computed(() => spellAbility.value ? sign(profBonus.value + (abilityMap.value[spellAbility.value]?.mod ?? 0)) : null)
-
-const spellSlots = computed(() => {
-  const prog = selectedClass.value?.spellcastingProgression ?? selectedClass.value?.pactMagicProgression ?? null
-  if (!prog) return []
-  const row = prog[level.value] ?? {}
-  return [1,2,3,4,5,6,7,8,9].map(l => ({ level: l, total: row[String(l)] ?? 0, used: character.spells.slotsUsed?.[String(l)] ?? 0 })).filter(r => r.total > 0)
-})
-
-const spellList = computed(() => {
-  const rows = []
-  for (const id of character.spells.cantrips) {
-    const sp = findSpellById(id); if (sp) rows.push({ level: 0, name: sp.name, time: sp.castingTime ?? '', range: sp.range ?? '', C: !!sp.concentration, R: !!sp.ritual, M: !!(sp.components ?? '').includes('M') })
-  }
-  for (const id of character.spells.prepared) {
-    const sp = findSpellById(id); if (sp) rows.push({ level: sp.level ?? 1, name: sp.name, time: sp.castingTime ?? '', range: sp.range ?? '', C: !!sp.concentration, R: !!sp.ritual, M: !!(sp.components ?? '').includes('M') })
-  }
-  return rows.sort((a, b) => a.level - b.level)
 })
 
 const inventoryItems = computed(() => character.inventory?.items ?? [])
 const gold = computed(() => character.inventory?.gold ?? 0)
 
-const ABILITY_GROUPS = [
-  { id: '力量',  en: 'STR', skills: ['运动'] },
-  { id: '敏捷',  en: 'DEX', skills: ['体操', '巧手', '隐匿'] },
-  { id: '体质',  en: 'CON', skills: [] },
-  { id: '智力',  en: 'INT', skills: ['奥秘', '历史', '调查', '自然', '宗教'] },
-  { id: '感知',  en: 'WIS', skills: ['驯兽', '洞悉', '医学', '察觉', '求生'] },
-  { id: '魅力',  en: 'CHA', skills: ['欺瞒', '威吓', '表演', '游说'] },
-]
+const isSpellcaster = computed(() =>
+  Boolean(selectedClass.value?.spellcastingProgression || selectedClass.value?.pactMagicProgression)
+)
+const spellAbility = computed(() => selectedClass.value?.spellcastingAbility ?? null)
+const spellAbilityMod = computed(() => abilityMap.value[spellAbility.value]?.mod ?? 0)
+const spellSaveDc = computed(() => spellAbility.value ? 8 + profBonus.value + spellAbilityMod.value : '')
+const spellAttack = computed(() => spellAbility.value ? signed(profBonus.value + spellAbilityMod.value) : '')
+const spellSlots = computed(() => {
+  const progression = selectedClass.value?.spellcastingProgression ?? selectedClass.value?.pactMagicProgression
+  const row = progression?.[level.value] ?? {}
+  return [1, 2, 3, 4, 5, 6, 7, 8, 9].map(spellLevel => ({
+    level: spellLevel,
+    total: row[String(spellLevel)] ?? 0,
+    used: character.spells.slotsUsed?.[String(spellLevel)] ?? 0,
+  }))
+})
+const spellRows = computed(() => {
+  const rows = []
+  for (const id of character.spells.cantrips ?? []) {
+    const spell = findSpellById(id)
+    if (spell) rows.push(normalizeSpell(spell))
+  }
+  for (const id of character.spells.prepared ?? []) {
+    const spell = findSpellById(id)
+    if (spell) rows.push(normalizeSpell(spell))
+  }
+  return rows.sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
+})
+
+function normalizeSpell(spell) {
+  return {
+    level: spell.level ?? 0,
+    name: spell.name,
+    castingTime: spell.castingTime ?? '',
+    range: spell.range ?? '',
+    concentration: Boolean(spell.concentration),
+    ritual: Boolean(spell.ritual),
+    material: Boolean(String(spell.components ?? '').includes('M')),
+  }
+}
+
+const abilityGroups = computed(() =>
+  ABILITY_IDS.map(id => ({
+    id,
+    en: ABILITY_EN[id],
+    score: abilityMap.value[id]?.total ?? 10,
+    modText: abilityMap.value[id]?.modText ?? signed(abilityMap.value[id]?.mod ?? 0),
+    save: savingRows.value.find(row => row.id === id),
+    skills: skillsByAbility.value[id] ?? [],
+  }))
+)
 </script>
 
 <template>
-  <div class="root">
-
-    <div class="controls no-print">
-      <button class="btn-back" @click="router.push('/sheet')">← 返回角色卡</button>
-      <button class="btn-print" @click="() => window.print()">🖨 打印 / 导出 PDF</button>
-      <span class="hint">打印对话框中选「另存为 PDF」即可导出</span>
+  <div class="html-sheet">
+    <div class="sheet-toolbar no-print">
+      <button type="button" class="toolbar-btn secondary" @click="router.push('/sheet')">
+        返回角色卡
+      </button>
+      <button type="button" class="toolbar-btn primary" @click="printSheet">
+        打印 / 另存为 PDF
+      </button>
+      <span class="toolbar-tip">这是 HTML 角色卡。浏览器打印时选择“另存为 PDF”即可导出。</span>
     </div>
 
-    <!-- ══ 第一页 ══ -->
-    <div class="page">
-
-      <!-- 顶部信息 -->
-      <div class="top-bar">
-        <div class="top-identity">
-          <div class="char-name">{{ character.name || '无名冒险者' }}</div>
-          <div class="char-meta">
-            <span v-if="selectedRace">{{ selectedRace.name }}</span>
-            <span class="sep" v-if="selectedClass">·</span>
-            <span v-if="selectedClass">{{ selectedClass.name }}（{{ selectedClass.hitDie }}）</span>
-            <span class="sep" v-if="selectedSubclass">·</span>
-            <span v-if="selectedSubclass">{{ selectedSubclass.name }}</span>
-            <span class="sep" v-if="selectedBackground">·</span>
-            <span v-if="selectedBackground">{{ selectedBackground.name }}背景</span>
+    <section class="paper page-one">
+      <header class="sheet-header">
+        <div class="field-block identity">
+          <label>角色姓名</label>
+          <div class="fill big">{{ character.name || '未命名角色' }}</div>
+          <div class="identity-grid">
+            <div><span>种族</span><strong>{{ selectedRace?.name || '—' }}</strong></div>
+            <div><span>职业</span><strong>{{ selectedClass?.name || '—' }}</strong></div>
+            <div><span>背景</span><strong>{{ selectedBackground?.name || '—' }}</strong></div>
+            <div><span>子职</span><strong>{{ selectedSubclass?.name || '—' }}</strong></div>
           </div>
-          <div class="char-meta">等级 {{ level }} &nbsp;·&nbsp; 熟练加值 +{{ profBonus }}</div>
         </div>
-        <div class="top-combat">
-          <div class="c-box"><div class="cl">护甲等级</div><div class="cv">{{ acBase }}</div></div>
-          <div class="c-box"><div class="cl">先攻</div><div class="cv">{{ sign(dexMod) }}</div></div>
-          <div class="c-box"><div class="cl">速度</div><div class="cv">{{ speed }}尺</div></div>
-          <div class="c-box"><div class="cl">体型</div><div class="cv">{{ size }}</div></div>
-          <div class="c-box"><div class="cl">被动察觉</div><div class="cv">{{ passivePerception }}</div></div>
-          <div class="c-box hp-box">
-            <div class="cl">HP 上限 / 当前 / 临时</div>
-            <div class="cv">{{ character.hp.max }} / {{ character.hp.current }} / {{ character.hp.temp || 0 }}</div>
-          </div>
-          <div class="c-box"><div class="cl">生命骰</div><div class="cv">{{ level }}{{ selectedClass?.hitDie || 'd8' }}</div></div>
+
+        <div class="level-shield">
+          <span>等级</span>
+          <strong>{{ level }}</strong>
+          <small>{{ selectedClass?.hitDie || 'd8' }}</small>
         </div>
-      </div>
 
-      <div class="main-body">
+        <div class="top-stats">
+          <div class="stat-box">
+            <label>护甲等级</label>
+            <strong>{{ acBase }}</strong>
+          </div>
+          <div class="stat-box">
+            <label>先攻</label>
+            <strong>{{ signed(dexMod) }}</strong>
+          </div>
+          <div class="stat-box">
+            <label>速度</label>
+            <strong>{{ speed }}</strong>
+          </div>
+          <div class="stat-box wide">
+            <label>生命值</label>
+            <strong>{{ character.hp.current || character.hp.max || 0 }} / {{ character.hp.max || 0 }}</strong>
+          </div>
+          <div class="stat-box">
+            <label>被动察觉</label>
+            <strong>{{ passivePerception }}</strong>
+          </div>
+          <div class="stat-box">
+            <label>体型</label>
+            <strong>{{ size }}</strong>
+          </div>
+        </div>
+      </header>
 
-        <!-- 左：属性 + 豁免 + 技能 -->
-        <div class="left-col">
-          <div v-for="group in ABILITY_GROUPS" :key="group.id" class="ability-block">
-            <div class="ab-header">
-              <div class="ab-circle">{{ abilityMap[group.id]?.modText ?? '+0' }}</div>
-              <div class="ab-info">
-                <div class="ab-name">{{ group.id }} <span class="ab-en">{{ group.en }}</span></div>
-                <div class="ab-score">{{ abilityMap[group.id]?.total ?? '—' }}</div>
-              </div>
+      <main class="page-one-grid">
+        <aside class="left-rail">
+          <div v-for="group in abilityGroups" :key="group.id" class="ability-card">
+            <div class="ability-head">
+              <span>{{ group.id }}</span>
+              <small>{{ group.en }}</small>
             </div>
-            <div class="skill-list">
-              <div class="skill-row save-row">
-                <span class="dot">{{ savingThrows.find(s => s.id === group.id)?.isProficient ? '●' : '○' }}</span>
-                <span class="sv">{{ savingThrows.find(s => s.id === group.id)?.text }}</span>
-                <span class="sn si">豁免</span>
-              </div>
-              <div v-for="sk in group.skills" :key="sk" class="skill-row">
-                <span class="dot">{{ skillData[sk]?.isProficient ? '●' : '○' }}</span>
-                <span class="sv">{{ skillData[sk]?.text }}</span>
-                <span class="sn">{{ sk }}</span>
-              </div>
+            <div class="ability-score-row">
+              <div class="mod-circle">{{ group.modText }}</div>
+              <div class="score-fill">{{ group.score }}</div>
+            </div>
+            <div class="mini-row strong">
+              <span :class="['dot', { on: group.save?.isProficient }]"></span>
+              <b>{{ group.save?.text }}</b>
+              <span>豁免</span>
+            </div>
+            <div v-for="skill in group.skills" :key="skill.skill" class="mini-row">
+              <span :class="['dot', { on: skill.isProficient }]"></span>
+              <b>{{ skill.text }}</b>
+              <span>{{ skill.skill }}</span>
             </div>
           </div>
 
-          <!-- 装备训练 -->
-          <div class="equip-box">
-            <div class="section-head">装备训练 &amp; 熟练项</div>
-            <div class="eq-row">
-              <span class="eq-lbl">当前穿戴</span>
-              <span class="eq-val">
-                {{ equippedArmor ? `${equippedArmor.nameZh}（${equippedArmor.name}）` : '未穿护甲' }}
-                {{ equippedShieldText }}
+          <section class="sheet-panel small-panel">
+            <h2>英雄激励</h2>
+            <div class="inspiration-star">✦</div>
+          </section>
+
+          <section class="sheet-panel training-panel">
+            <h2>装备训练 & 熟练项</h2>
+            <div class="tag-row">
+              <span v-for="armor in ['轻甲', '中甲', '重甲', '盾牌']" :key="armor" :class="{ on: armorTraining.includes(armor) }">
+                {{ armor }}
               </span>
             </div>
-            <div class="armor-row">
-              <span class="eq-lbl">护甲</span>
-              <span v-for="t in ['轻甲','中甲','重甲','盾牌']" :key="t"
-                    :class="['armor-chip', { on: armorProf.includes(t) }]">{{ t }}</span>
-            </div>
-            <div class="eq-row">
-              <span class="eq-lbl">武器</span>
-              <span class="eq-val">{{ (selectedClass?.weapons ?? []).join('、') || '——' }}</span>
-            </div>
-            <div class="eq-row" v-if="selectedClass?.tools?.length">
-              <span class="eq-lbl">工具</span>
-              <span class="eq-val">{{ selectedClass.tools.join('、') }}</span>
-            </div>
-            <div class="eq-row">
-              <span class="eq-lbl">语言</span>
-              <span class="eq-val">{{ languages.join('、') }}</span>
-            </div>
-          </div>
-        </div>
+            <p><b>武器</b>{{ weaponTraining.join('、') || '—' }}</p>
+            <p><b>工具</b>{{ toolTraining.join('、') || '—' }}</p>
+          </section>
+        </aside>
 
-        <!-- 右：武器 + 特性 + 专长 -->
-        <div class="right-col">
-
-          <div class="section-box">
-            <div class="section-head">武器 &amp; 伤害戏法</div>
-            <table class="weapon-tbl">
+        <section class="main-rail">
+          <section class="sheet-panel attacks-panel">
+            <h2>武器 & 伤害戏法</h2>
+            <table>
               <thead>
-                <tr><th>名称</th><th>攻击加值 / DC</th><th>伤害 &amp; 类型</th><th>备注</th></tr>
+                <tr><th>名称</th><th>攻击加值 / DC</th><th>伤害 & 类型</th><th>备注</th></tr>
               </thead>
               <tbody>
-                <tr v-for="item in inventoryItems.slice(0, 6)" :key="item.id">
+                <tr v-for="item in inventoryItems.slice(0, 7)" :key="item.id">
                   <td>{{ item.name }}</td><td></td><td></td><td>{{ item.desc || '' }}</td>
                 </tr>
-                <tr v-for="i in Math.max(0, 6 - inventoryItems.length)" :key="'ew'+i">
-                  <td>&nbsp;</td><td></td><td></td><td></td>
+                <tr v-for="index in Math.max(0, 7 - inventoryItems.length)" :key="`weapon-${index}`">
+                  <td></td><td></td><td></td><td></td>
                 </tr>
               </tbody>
             </table>
-          </div>
+          </section>
 
-          <div class="section-box flex-grow">
-            <div class="section-head">职业特性</div>
-            <div class="features-grid">
-              <div v-for="f in classFeatures" :key="f.id || f.name" class="feat-row">
-                <span class="feat-lv">{{ f.atLevel }}</span>
-                <span class="feat-name">{{ f.name }}</span>
+          <section class="sheet-panel features-panel">
+            <h2>职业特性</h2>
+            <div class="feature-columns">
+              <div v-for="feature in classFeatures" :key="`${feature.level}-${feature.name}`" class="feature-line">
+                <span>{{ feature.level || 1 }}</span>
+                <strong>{{ feature.name }}</strong>
               </div>
             </div>
-          </div>
+          </section>
 
-          <div class="two-boxes">
-            <div class="section-box">
-              <div class="section-head">种族特质</div>
-              <div v-for="t in raceTraits" :key="t.id" class="feat-row">
-                <span class="feat-name">{{ t.name }}</span>
+          <div class="bottom-panels">
+            <section class="sheet-panel">
+              <h2>种族特质</h2>
+              <div v-for="trait in raceTraits" :key="trait.id || trait.name" class="note-line">
+                {{ trait.name }}
               </div>
+            </section>
+            <section class="sheet-panel">
+              <h2>专长</h2>
+              <div v-if="originFeat" class="note-line">起源：{{ originFeat }}</div>
+              <div v-for="feat in fightingStyles" :key="feat.id" class="note-line">战斗风格：{{ feat.name }}</div>
+              <div v-for="feat in generalFeats" :key="feat.id" class="note-line">通用：{{ feat.name }}</div>
+            </section>
+          </div>
+        </section>
+
+        <aside class="right-rail">
+          <section class="sheet-panel">
+            <h2>外貌</h2>
+            <div class="portrait-box"></div>
+          </section>
+          <section class="sheet-panel story-panel">
+            <h2>背景故事 & 个性特点</h2>
+            <div class="grid-fill"></div>
+            <div class="alignment-row"><span>阵营</span><div class="fill"></div></div>
+          </section>
+          <section class="sheet-panel">
+            <h2>语言</h2>
+            <div v-for="language in languages" :key="language" class="note-line">{{ language }}</div>
+          </section>
+          <section class="sheet-panel gear-panel">
+            <h2>装备</h2>
+            <div class="note-line">护甲：{{ equippedArmor ? `${equippedArmor.nameZh}（${equippedArmor.name}）` : '未穿护甲' }}</div>
+            <div class="note-line">盾牌：{{ shieldText }}</div>
+            <div v-for="item in inventoryItems.slice(0, 9)" :key="item.id" class="note-line">
+              {{ item.qty > 1 ? `${item.qty}× ` : '' }}{{ item.name }}
             </div>
-            <div class="section-box">
-              <div class="section-head">专长</div>
-              <div v-if="originFeat" class="feat-row">
-                <span class="ftag o">起源</span><span class="feat-name">{{ originFeat }}</span>
-              </div>
-              <div v-for="f in fightingStyles" :key="f.id" class="feat-row">
-                <span class="ftag s">战斗</span><span class="feat-name">{{ f.name }}</span>
-              </div>
-              <div v-for="f in generalFeats" :key="f.id" class="feat-row">
-                <span class="ftag g">通用</span><span class="feat-name">{{ f.name }}</span>
-              </div>
+          </section>
+          <section class="sheet-panel coins-panel">
+            <h2>钱币</h2>
+            <div class="coin-grid">
+              <div><span>CP</span><b>—</b></div>
+              <div><span>SP</span><b>—</b></div>
+              <div><span>EP</span><b>—</b></div>
+              <div><span>GP</span><b>{{ gold }}</b></div>
+              <div><span>PP</span><b>—</b></div>
+            </div>
+          </section>
+        </aside>
+      </main>
+    </section>
+
+    <section v-if="isSpellcaster" class="paper page-two">
+      <header class="spell-header">
+        <section class="sheet-panel spell-meta">
+          <h2>施法关键信息</h2>
+          <div class="spell-meta-grid">
+            <span>施法属性</span><strong>{{ spellAbility || '—' }}</strong>
+            <span>法术豁免 DC</span><strong>{{ spellSaveDc || '—' }}</strong>
+            <span>法术攻击加值</span><strong>{{ spellAttack || '—' }}</strong>
+          </div>
+        </section>
+
+        <section class="sheet-panel slot-panel">
+          <h2>法术位</h2>
+          <div class="slot-grid">
+            <div v-for="slot in spellSlots" :key="slot.level">
+              <span>LEVEL {{ slot.level }}</span>
+              <b>{{ slot.total }}</b>
+              <small>已消耗 {{ slot.used }}</small>
             </div>
           </div>
+        </section>
+      </header>
 
-        </div>
-      </div>
-    </div>
-
-    <!-- ══ 第二页：施法（仅施法职业） ══ -->
-    <div v-if="isSpellcaster" class="page">
-      <div class="p2-layout">
-
-        <div class="p2-left">
-          <div class="section-box">
-            <div class="section-head">施法信息</div>
-            <div class="spell-info-row"><span class="sil">关键属性</span><span class="siv">{{ spellAbility }}</span></div>
-            <div class="spell-info-row"><span class="sil">属性调整值</span><span class="siv">{{ abilityMap[spellAbility]?.modText ?? '+0' }}</span></div>
-            <div class="spell-info-row"><span class="sil">法术豁免DC</span><span class="siv">{{ spellDC }}</span></div>
-            <div class="spell-info-row"><span class="sil">法术攻击加值</span><span class="siv">{{ spellAttack }}</span></div>
-          </div>
-
-          <div class="section-box">
-            <div class="section-head">法术位</div>
-            <table class="slot-tbl">
-              <thead><tr><th>环阶</th><th>总数</th><th>已消耗</th></tr></thead>
-              <tbody>
-                <tr v-for="r in spellSlots" :key="r.level">
-                  <td>{{ r.level }}环</td><td>{{ r.total }}</td><td>{{ r.used }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="section-box">
-            <div class="section-head">钱币</div>
-            <div class="coin-row">
-              <div class="coin"><div class="ck">GP</div><div class="cv2">{{ gold }}</div></div>
-              <div class="coin"><div class="ck">SP</div><div class="cv2">—</div></div>
-              <div class="coin"><div class="ck">CP</div><div class="cv2">—</div></div>
-            </div>
-          </div>
-
-          <div class="section-box flex-grow">
-            <div class="section-head">装备</div>
-            <div v-for="item in inventoryItems" :key="item.id" class="item-line">
-              {{ item.qty > 1 ? item.qty + '× ' : '' }}{{ item.name }}
-            </div>
-          </div>
-        </div>
-
-        <div class="p2-mid">
-          <div class="section-head" style="margin-bottom:1.5mm">戏法 &amp; 已准备法术</div>
-          <table class="spell-tbl">
+      <main class="spell-layout">
+        <section class="sheet-panel spell-list-panel">
+          <h2>戏法 & 已准备法术</h2>
+          <table>
             <thead>
               <tr>
-                <th style="width:9mm">环阶</th>
+                <th>环阶</th>
                 <th>法术名</th>
-                <th style="width:18mm">施法时间</th>
-                <th style="width:16mm">距离</th>
-                <th style="width:16mm;text-align:center">C / R / M</th>
+                <th>施法时间</th>
+                <th>距离</th>
+                <th>C/R/M</th>
+                <th>备注</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(sp,i) in spellList" :key="i">
-                <td style="text-align:center">{{ sp.level === 0 ? '戏法' : sp.level+'环' }}</td>
-                <td>{{ sp.name }}</td>
-                <td>{{ sp.time }}</td>
-                <td>{{ sp.range }}</td>
-                <td style="text-align:center">
-                  <span :class="['flag', { on: sp.C }]">C</span>
-                  <span :class="['flag', { on: sp.R }]">R</span>
-                  <span :class="['flag', { on: sp.M }]">M</span>
+              <tr v-for="spell in spellRows" :key="`${spell.level}-${spell.name}`">
+                <td>{{ spell.level === 0 ? '戏法' : `${spell.level}环` }}</td>
+                <td>{{ spell.name }}</td>
+                <td>{{ spell.castingTime }}</td>
+                <td>{{ spell.range }}</td>
+                <td>
+                  <span :class="['flag', { on: spell.concentration }]">C</span>
+                  <span :class="['flag', { on: spell.ritual }]">R</span>
+                  <span :class="['flag', { on: spell.material }]">M</span>
                 </td>
+                <td></td>
               </tr>
-              <tr v-for="i in Math.max(0, 30 - spellList.length)" :key="'b'+i" class="blank-tr">
-                <td></td><td></td><td></td><td></td><td></td>
+              <tr v-for="index in Math.max(0, 34 - spellRows.length)" :key="`spell-empty-${index}`">
+                <td></td><td></td><td></td><td></td><td></td><td></td>
               </tr>
             </tbody>
           </table>
-        </div>
-
-        <div class="p2-right">
-          <div class="section-box">
-            <div class="section-head">语言</div>
-            <div v-for="lang in languages" :key="lang" class="item-line">{{ lang }}</div>
-          </div>
-          <div class="section-box flex-grow">
-            <div class="section-head">背景故事 &amp; 个性特点</div>
-          </div>
-          <div class="section-box">
-            <div class="section-head">外貌 &amp; 阵营</div>
-            <div style="height:20mm"></div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
+        </section>
+      </main>
+    </section>
   </div>
 </template>
 
 <style scoped>
 @media print {
-  @page { size: A4 portrait; margin: 8mm; }
-  .no-print { display: none !important; }
-  .root { padding: 0; background: white; }
-  .page { box-shadow: none !important; margin-bottom: 0 !important; page-break-after: always; }
-  .page:last-child { page-break-after: avoid; }
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .html-sheet {
+    background: #fff !important;
+    padding: 0 !important;
+  }
+
+  .paper {
+    width: 210mm !important;
+    height: 297mm !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    page-break-after: always;
+    overflow: hidden !important;
+  }
+
+  .paper:last-child {
+    page-break-after: auto;
+  }
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
-.root {
-  background: #ddd;
+.html-sheet {
   min-height: 100vh;
-  padding: 16px;
+  background: #d9d9d9;
+  padding: 18px 0 32px;
+  color: #141414;
   font-family: 'Noto Serif SC', 'SimSun', serif;
-  font-size: 7.5pt;
-  color: #111;
 }
 
-.page {
-  background: white;
+.sheet-toolbar {
   width: 210mm;
-  min-height: 297mm;
-  margin: 0 auto 16mm;
-  box-shadow: 0 2px 12px rgba(0,0,0,.2);
-  padding: 7mm;
-  display: flex;
-  flex-direction: column;
-  gap: 3mm;
-}
-
-.controls {
-  width: 210mm;
-  margin: 0 auto 12px;
+  margin: 0 auto 14px;
   display: flex;
   align-items: center;
   gap: 10px;
 }
-.btn-back { padding: 7px 14px; background: #555; color: #fff; border: none; border-radius: 5px; cursor: pointer; font-size: 13px; }
-.btn-print { padding: 7px 18px; background: #c9a84c; color: #1a0f00; border: none; border-radius: 5px; cursor: pointer; font-size: 13px; font-weight: 700; }
-.hint { font-size: 11px; color: #777; }
 
-/* 顶栏 */
-.top-bar { display: flex; gap: 4mm; border-bottom: 1.5px solid #333; padding-bottom: 3mm; }
-.top-identity { flex: 1; }
-.char-name { font-size: 16pt; font-weight: 700; line-height: 1.1; margin-bottom: 1mm; }
-.char-meta { font-size: 7.5pt; color: #444; margin-bottom: .5mm; }
-.sep { margin: 0 1mm; color: #aaa; }
-.top-combat { display: flex; gap: 2mm; flex-wrap: wrap; align-items: flex-start; }
-.c-box { border: 1px solid #444; padding: 1.5mm 2mm; border-radius: 2px; text-align: center; min-width: 16mm; }
-.c-box.hp-box { min-width: 38mm; }
-.cl { font-size: 5.5pt; color: #666; }
-.cv { font-size: 11pt; font-weight: 700; line-height: 1.1; }
-
-/* 主体 */
-.main-body { display: flex; gap: 4mm; flex: 1; }
-
-/* 左列 */
-.left-col { width: 52mm; flex-shrink: 0; display: flex; flex-direction: column; gap: 1.5mm; }
-
-.ability-block { border: 1px solid #333; border-radius: 2px; padding: 1.5mm; }
-.ab-header { display: flex; gap: 2mm; align-items: center; margin-bottom: 1.5mm; }
-.ab-circle {
-  width: 12mm; height: 12mm; border: 1.5px solid #333; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 12pt; font-weight: 700; background: #f5f0e0; flex-shrink: 0;
+.toolbar-btn {
+  border: 0;
+  border-radius: 6px;
+  padding: 9px 16px;
+  font-weight: 700;
+  cursor: pointer;
 }
-.ab-name { font-size: 7.5pt; font-weight: 700; }
-.ab-en { font-size: 6pt; color: #888; margin-left: 1mm; }
-.ab-score { font-size: 9pt; font-weight: 700; color: #555; }
-.skill-list { display: flex; flex-direction: column; gap: .3mm; }
-.skill-row { display: flex; align-items: center; gap: 1mm; font-size: 6.5pt; }
-.dot { font-size: 9pt; line-height: 1; flex-shrink: 0; }
-.sv { font-weight: 700; min-width: 7mm; text-align: right; flex-shrink: 0; }
-.sn { }
-.si { font-style: italic; color: #666; }
-.save-row { margin-bottom: 1mm; }
 
-.equip-box { border: 1px solid #333; border-radius: 2px; padding: 1.5mm; margin-top: auto; }
-.armor-row { display: flex; align-items: center; gap: 1.5mm; flex-wrap: wrap; margin-bottom: 1mm; }
-.eq-lbl { font-size: 5.5pt; font-weight: 700; color: #666; min-width: 7mm; }
-.armor-chip { font-size: 6pt; padding: .3mm 1.5mm; border: .5px solid #aaa; border-radius: 2px; color: #999; }
-.armor-chip.on { background: #f0e8d0; border-color: #c9a84c; color: #333; font-weight: 700; }
-.eq-row { display: flex; gap: 1.5mm; margin-bottom: .5mm; align-items: baseline; }
-.eq-val { font-size: 6.5pt; flex: 1; border-bottom: .5px solid #ddd; }
+.toolbar-btn.primary {
+  background: #1d4f8f;
+  color: #fff;
+}
 
-/* 右列 */
-.right-col { flex: 1; display: flex; flex-direction: column; gap: 2mm; }
-.section-box { border: 1px solid #333; border-radius: 2px; padding: 1.5mm; }
-.section-box.flex-grow { flex: 1; }
-.section-head { font-size: 6.5pt; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #444; border-bottom: 1px solid #ddd; padding-bottom: .5mm; margin-bottom: 1.5mm; }
+.toolbar-btn.secondary {
+  background: #333;
+  color: #fff;
+}
 
-.weapon-tbl { width: 100%; border-collapse: collapse; font-size: 6.5pt; }
-.weapon-tbl th { background: #eee; padding: .7mm 1.5mm; border: .5px solid #bbb; font-size: 6pt; text-align: left; }
-.weapon-tbl td { padding: .6mm 1.5mm; border: .5px solid #e0e0e0; height: 5.5mm; }
+.toolbar-tip {
+  color: #555;
+  font-size: 13px;
+}
 
-.features-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5mm 4mm; }
-.feat-row { display: flex; align-items: baseline; gap: 1.5mm; font-size: 7pt; }
-.feat-lv { font-size: 5.5pt; color: #999; min-width: 4mm; }
-.feat-name { font-weight: 600; }
+.paper {
+  width: 210mm;
+  height: 297mm;
+  margin: 0 auto 18px;
+  padding: 4mm;
+  background: #fff;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+}
 
-.two-boxes { display: flex; gap: 2mm; }
-.two-boxes .section-box { flex: 1; }
+.sheet-header {
+  height: 31mm;
+  display: grid;
+  grid-template-columns: 80mm 25mm 1fr;
+  gap: 3mm;
+  margin-bottom: 2mm;
+}
 
-.ftag { font-size: 5.5pt; padding: .3mm 1mm; border-radius: 1px; font-weight: 700; flex-shrink: 0; }
-.ftag.o { background: #d4e8d0; color: #1a4a1a; }
-.ftag.g { background: #d0d8f0; color: #1a1a5a; }
-.ftag.s { background: #f0d8d0; color: #5a1a1a; }
+.field-block,
+.sheet-panel,
+.stat-box,
+.level-shield {
+  position: relative;
+  border: 1.7px solid #111;
+  background:
+    linear-gradient(135deg, transparent 0 10px, rgba(12, 74, 150, 0.06) 10px 100%),
+    #fff;
+}
 
-/* 第二页 */
-.p2-layout { display: flex; gap: 4mm; flex: 1; }
-.p2-left { width: 38mm; flex-shrink: 0; display: flex; flex-direction: column; gap: 2mm; }
-.p2-mid { flex: 1; display: flex; flex-direction: column; }
-.p2-right { width: 44mm; flex-shrink: 0; display: flex; flex-direction: column; gap: 2mm; }
+.field-block::before,
+.sheet-panel::before,
+.stat-box::before,
+.level-shield::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 1px solid #4a4a4a;
+  pointer-events: none;
+}
 
-.spell-info-row { display: flex; justify-content: space-between; padding: .8mm 0; border-bottom: .5px solid #eee; font-size: 7pt; }
-.sil { color: #666; }
-.siv { font-weight: 700; font-size: 8.5pt; }
+.identity {
+  padding: 3mm;
+}
 
-.slot-tbl { width: 100%; border-collapse: collapse; font-size: 7pt; }
-.slot-tbl th, .slot-tbl td { border: .5px solid #ccc; padding: .7mm 1.5mm; text-align: center; }
-.slot-tbl th { background: #eee; font-size: 6pt; }
+label,
+.sheet-panel h2 {
+  display: block;
+  margin: 0;
+  font-size: 8px;
+  font-weight: 700;
+  text-align: center;
+}
 
-.coin-row { display: flex; gap: 2mm; margin-top: 1mm; }
-.coin { flex: 1; text-align: center; }
-.ck { font-size: 6pt; color: #888; }
-.cv2 { font-size: 8.5pt; font-weight: 700; border-bottom: .5px solid #bbb; }
+.fill,
+.score-fill,
+.identity-grid strong,
+.stat-box strong,
+.note-line,
+.grid-fill,
+td {
+  background:
+    linear-gradient(#cfe0f6 50%, #c5d8f0 50%),
+    #cfe0f6;
+  background-size: 100% 4mm;
+}
 
-.item-line { font-size: 7pt; padding: .5mm 0; border-bottom: .5px solid #eee; }
+.fill.big {
+  height: 7mm;
+  margin: 1mm 0 1.4mm;
+  padding: 1mm 2mm;
+  font-size: 13px;
+  font-weight: 700;
+}
 
-.spell-tbl { width: 100%; border-collapse: collapse; font-size: 7pt; flex: 1; }
-.spell-tbl th { background: #eee; padding: .7mm 1mm; border: .5px solid #bbb; font-size: 6.5pt; text-align: left; }
-.spell-tbl td { padding: .5mm 1mm; border: .5px solid #e0e0e0; height: 4.8mm; }
-.blank-tr td { background: #fafafa; }
+.identity-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5mm 2mm;
+}
 
-.flag { font-weight: 700; font-size: 7pt; color: #ccc; margin: 0 .5mm; }
-.flag.on { color: #222; }
+.identity-grid div {
+  display: grid;
+  grid-template-columns: 13mm 1fr;
+  align-items: center;
+  gap: 1mm;
+}
+
+.identity-grid span {
+  font-size: 8px;
+}
+
+.identity-grid strong {
+  min-height: 5mm;
+  padding: 0.8mm 1.2mm;
+  font-size: 10px;
+}
+
+.level-shield {
+  display: grid;
+  place-items: center;
+  padding: 2mm;
+  text-align: center;
+  clip-path: polygon(50% 0, 100% 18%, 100% 72%, 50% 100%, 0 72%, 0 18%);
+}
+
+.level-shield span {
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.level-shield strong {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.level-shield small {
+  font-size: 9px;
+}
+
+.top-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2mm;
+}
+
+.stat-box {
+  min-height: 13mm;
+  padding: 1.8mm 2mm;
+  text-align: center;
+}
+
+.stat-box.wide {
+  grid-column: span 2;
+}
+
+.stat-box strong {
+  display: block;
+  min-height: 7mm;
+  margin-top: 1mm;
+  padding-top: 1mm;
+  font-size: 15px;
+}
+
+.page-one-grid {
+  display: grid;
+  grid-template-columns: 51mm 1fr 61mm;
+  gap: 2mm;
+}
+
+.left-rail,
+.main-rail,
+.right-rail {
+  display: grid;
+  gap: 1.4mm;
+  align-content: start;
+}
+
+.ability-card {
+  border: 1.7px solid #111;
+  padding: 1.35mm;
+  min-height: 25.5mm;
+}
+
+.ability-head {
+  display: flex;
+  justify-content: center;
+  gap: 1.5mm;
+  font-weight: 700;
+  font-size: 10px;
+}
+
+.ability-head small {
+  color: #666;
+}
+
+.ability-score-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5mm;
+  margin: 0.6mm 0;
+}
+
+.mod-circle {
+  width: 11mm;
+  height: 11mm;
+  border: 1.7px solid #111;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #e7f0fb;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.score-fill {
+  width: 16mm;
+  height: 6.5mm;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.mini-row {
+  display: grid;
+  grid-template-columns: 3.4mm 7mm 1fr;
+  align-items: center;
+  gap: 1mm;
+  min-height: 3.35mm;
+  font-size: 8px;
+}
+
+.mini-row.strong {
+  border-top: 1px solid #111;
+  padding-top: 0.45mm;
+  margin-top: 0.45mm;
+}
+
+.dot {
+  width: 2.35mm;
+  height: 2.35mm;
+  border: 1px solid #2f5f9e;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot.on {
+  background: #2f5f9e;
+  box-shadow: inset 0 0 0 1px #fff;
+}
+
+.sheet-panel {
+  padding: 2mm;
+}
+
+.sheet-panel h2 {
+  border-bottom: 1px solid #111;
+  padding-bottom: 0.5mm;
+  margin-bottom: 1mm;
+}
+
+.small-panel {
+  min-height: 15mm;
+  text-align: center;
+}
+
+.inspiration-star {
+  width: 7mm;
+  height: 7mm;
+  margin: 1mm auto 0;
+  display: grid;
+  place-items: center;
+  color: #2f5f9e;
+  font-size: 14px;
+}
+
+.training-panel {
+  min-height: 32mm;
+}
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2mm;
+  margin-bottom: 2mm;
+}
+
+.tag-row span {
+  border: 1px solid #2f5f9e;
+  color: #777;
+  padding: 0.6mm 1.4mm;
+  font-size: 8px;
+}
+
+.tag-row span.on {
+  background: #d8e7fb;
+  color: #111;
+  font-weight: 700;
+}
+
+.training-panel p {
+  margin: 0.8mm 0;
+  font-size: 8px;
+}
+
+.training-panel b {
+  display: inline-block;
+  min-width: 9mm;
+}
+
+.attacks-panel {
+  min-height: 47mm;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8px;
+}
+
+th {
+  border-bottom: 1px solid #111;
+  padding: 1mm;
+  font-weight: 700;
+  text-align: left;
+}
+
+td {
+  border: 1px solid #fff;
+  height: 5.1mm;
+  padding: 0.6mm;
+}
+
+.features-panel {
+  min-height: 70mm;
+}
+
+.feature-columns {
+  columns: 2;
+  column-gap: 4mm;
+}
+
+.feature-line,
+.note-line {
+  break-inside: avoid;
+  min-height: 4.5mm;
+  padding: 0.65mm 0.8mm;
+  margin-bottom: 0.55mm;
+  font-size: 8.5px;
+}
+
+.feature-line span {
+  display: inline-grid;
+  place-items: center;
+  width: 5mm;
+  height: 5mm;
+  border: 1px solid #2f5f9e;
+  margin-right: 1mm;
+  color: #2f5f9e;
+  font-size: 8px;
+}
+
+.bottom-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2mm;
+}
+
+.bottom-panels .sheet-panel {
+  min-height: 58mm;
+}
+
+.portrait-box {
+  height: 24mm;
+  background: linear-gradient(90deg, #fff 0 18mm, #cfe0f6 18mm 100%);
+}
+
+.story-panel {
+  min-height: 61mm;
+}
+
+.grid-fill {
+  height: 43mm;
+}
+
+.alignment-row {
+  display: grid;
+  grid-template-columns: 12mm 1fr;
+  align-items: center;
+  gap: 2mm;
+  margin-top: 2mm;
+  font-size: 9px;
+}
+
+.gear-panel {
+  min-height: 70mm;
+}
+
+.coins-panel {
+  min-height: 20mm;
+}
+
+.coin-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1.2mm;
+}
+
+.coin-grid div {
+  text-align: center;
+}
+
+.coin-grid span {
+  display: block;
+  font-size: 8px;
+}
+
+.coin-grid b {
+  display: block;
+  height: 8mm;
+  border: 1px solid #111;
+  background: #cfe0f6;
+  padding-top: 1.5mm;
+}
+
+.page-two {
+  display: grid;
+  grid-template-rows: 35mm 1fr;
+  gap: 3mm;
+}
+
+.spell-header {
+  display: grid;
+  grid-template-columns: 48mm 1fr;
+  gap: 3mm;
+}
+
+.spell-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 16mm;
+  gap: 1.2mm;
+  font-size: 9px;
+}
+
+.spell-meta-grid strong {
+  background: #cfe0f6;
+  text-align: center;
+  padding: 1mm;
+}
+
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 1mm;
+}
+
+.slot-grid div {
+  text-align: center;
+  font-size: 7px;
+}
+
+.slot-grid b {
+  display: block;
+  height: 8mm;
+  border: 1px solid #2f5f9e;
+  background: #cfe0f6;
+  padding-top: 1.5mm;
+  font-size: 12px;
+}
+
+.slot-grid small {
+  display: block;
+  margin-top: 0.8mm;
+  color: #555;
+}
+
+.spell-layout,
+.spell-list-panel {
+  min-height: 0;
+}
+
+.spell-list-panel table {
+  font-size: 8px;
+}
+
+.spell-list-panel td {
+  height: 5.35mm;
+}
+
+.flag {
+  color: #9aa5b1;
+  font-weight: 700;
+  margin-right: 1mm;
+}
+
+.flag.on {
+  color: #143f73;
+}
 </style>

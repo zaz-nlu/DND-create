@@ -112,7 +112,7 @@ function goNext() {
             <span>背景专长</span>
             <strong>{{ backgroundFeat?.name ?? '未记录' }}</strong>
           </div>
-          <div class="source-item">
+          <div v-if="character.race.id === 'human'" class="source-item">
             <span>人类额外专长</span>
             <strong>{{ humanFeat?.name ?? '无' }}</strong>
           </div>
@@ -321,7 +321,7 @@ function goNext() {
 
 .ability-summary-footer {
   position: fixed;
-  inset: auto 0 0;
+  inset: auto 0 var(--pcb-height, 0px);
   padding: 16px 20px env(safe-area-inset-bottom, 0px);
   display: flex;
   justify-content: flex-end;

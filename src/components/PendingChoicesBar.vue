@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watchEffect } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { backgrounds } from '../data/backgrounds.js'
 import { classes } from '../data/classes.js'
@@ -18,6 +18,8 @@ const selectedRace = computed(() => races.find(r => r.id === character.race.id) 
 const selectedBackground = computed(() => backgrounds.find(b => b.id === character.background.id) ?? null)
 const abilityScores = computed(() => getAbilityTotalScores(character))
 
+const EXCLUDED_KINDS = new Set(['generalFeat', 'fightingStyleFeat'])
+
 const unmetChoices = computed(() => {
   if (!selectedClass.value?.progression) return []
   return getUnmetChoices(
@@ -26,7 +28,7 @@ const unmetChoices = computed(() => {
     selectedRace.value,
     selectedBackground.value,
     abilityScores.value
-  ).filter(c => !c.isMet)
+  ).filter(c => !c.isMet && !EXCLUDED_KINDS.has(c.kind))
 })
 
 const shouldShow = computed(() =>
@@ -34,6 +36,10 @@ const shouldShow = computed(() =>
 )
 
 const isOpen = ref(false)
+
+watchEffect(() => {
+  document.documentElement.style.setProperty('--pcb-height', shouldShow.value ? '48px' : '0px')
+})
 
 function toggle() { isOpen.value = !isOpen.value }
 

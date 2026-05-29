@@ -240,6 +240,25 @@ export const races = [
         desc: '当你到达 5 级时，你获得引导体内龙之魔法的能力。以一个附赠动作，你的后背临时伸出两片灵体飞翼，持续 10 分钟或直到你主动收起（无需动作）或陷入失能。持续时间内，你获得等于你速度的飞行速度。飞翼外观如同龙息武器对应的能量凝聚而成。长休后可重新使用。',
       },
     ],
+    raceChoices: [
+      {
+        id: 'dragonAncestry',
+        label: '龙族血统',
+        desc: '选择你的龙族先祖，决定你的吐息武器伤害类型与抗性。',
+        options: [
+          { id: 'black',  label: '黑龙',   detail: '强酸伤害' },
+          { id: 'blue',   label: '蓝龙',   detail: '闪电伤害' },
+          { id: 'green',  label: '绿龙',   detail: '毒素伤害' },
+          { id: 'red',    label: '红龙',   detail: '火焰伤害' },
+          { id: 'white',  label: '白龙',   detail: '寒冷伤害' },
+          { id: 'brass',  label: '黄铜龙', detail: '火焰伤害' },
+          { id: 'bronze', label: '青铜龙', detail: '闪电伤害' },
+          { id: 'copper', label: '赤铜龙', detail: '强酸伤害' },
+          { id: 'gold',   label: '金龙',   detail: '火焰伤害' },
+          { id: 'silver', label: '银龙',   detail: '寒冷伤害' },
+        ],
+      },
+    ],
   },
 
   {
@@ -301,6 +320,18 @@ export const races = [
         desc: '你不需要睡眠，魔法也不能使你陷入睡眠。你可以用 4 小时完成长休，但期间必须处于出神的冥想状态，在此期间你能保持意识清醒。',
       },
     ],
+    raceChoices: [
+      {
+        id: 'elvenLineage',
+        label: '精灵血系',
+        desc: '选择你所属的精灵血系，决定你的魔法能力。',
+        options: [
+          { id: 'drow',      label: '卓尔',     detail: '黑暗视觉120尺 · 舞光术 · 妖火 · 黑暗术' },
+          { id: 'high-elf',  label: '高等精灵', detail: '自选戏法 · 侦测魔法 · 迷踪步' },
+          { id: 'wood-elf',  label: '木精灵',   detail: '速度35尺 · 德鲁伊伎俩 · 大步奔行 · 行动无踪' },
+        ],
+      },
+    ],
   },
 
   {
@@ -347,6 +378,21 @@ export const races = [
         name: '身强力壮',
         nameEn: 'Powerful Build',
         desc: '你为摆脱受擒（Grappled）状态所作的检定具有优势。计算你的负重时，视为大一级的体型。',
+      },
+    ],
+    raceChoices: [
+      {
+        id: 'giantAncestry',
+        label: '巨人先祖',
+        desc: '选择你所传承的巨人血脉，决定你的超自然恩惠。',
+        options: [
+          { id: 'cloud', label: '云巨人', detail: '云之远迹：附赠动作传送至30尺内可见未占空间' },
+          { id: 'fire',  label: '火巨人', detail: '火之燃烧：攻击命中时额外造成1d10火焰伤害' },
+          { id: 'frost', label: '霜巨人', detail: '霜之刺骨：攻击命中时额外1d6寒冷伤害并降速10尺' },
+          { id: 'hill',  label: '山丘巨人', detail: '山之翻撞：击中大型或更小生物时令其倒地' },
+          { id: 'stone', label: '石巨人', detail: '石之坚韧：受伤时反应掷1d12+体质调整值减少伤害' },
+          { id: 'storm', label: '风暴巨人', detail: '风暴之鸣：被60尺内生物伤害时反应造成1d8雷鸣伤害' },
+        ],
       },
     ],
   },

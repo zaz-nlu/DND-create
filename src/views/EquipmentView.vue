@@ -5,7 +5,8 @@ import AbilityBar from '../components/AbilityBar.vue'
 import { armors } from '../data/armor.js'
 import { backgrounds } from '../data/backgrounds.js'
 import { classes } from '../data/classes.js'
-import { character, setEquippedArmor, setEquippedShield } from '../store/character.js'
+import { getWeaponMasteryById, getWeaponPropertyById, weapons } from '../data/weapons.js'
+import { character, addInventoryItem, removeInventoryItem, setEquippedArmor, setEquippedShield } from '../store/character.js'
 import { getAbilityTotalRows } from '../utils/abilityTotals.js'
 import { calculateCharacterAc, getEquippedArmor, hasArmorTraining, hasShieldTraining } from '../utils/equipment.js'
 import StepNav from './StepNav.vue'
@@ -32,6 +33,14 @@ const strScore = computed(() => abilityMap.value['力量']?.total ?? 10)
 
 const equippedArmor = computed(() => getEquippedArmor(character))
 const shieldTrained = computed(() => hasShieldTraining(selectedClass.value))
+const weaponTraining = computed(() => selectedClass.value?.weapons ?? [])
+const selectedWeaponIds = computed(() =>
+  new Set(
+    (character.inventory?.items ?? [])
+      .filter(item => item.type === 'weapon' && String(item.id).startsWith('weapon:'))
+      .map(item => item.sourceId ?? String(item.id).replace('weapon:', ''))
+  )
+)
 const selectedAc = computed(() =>
   calculateCharacterAc({
     character,
@@ -48,6 +57,33 @@ const armorOptions = computed(() =>
     strengthPenalty: armor.strengthRequired && strScore.value < armor.strengthRequired,
     acValue: calculateArmorAcPreview(armor),
   }))
+)
+
+const weaponGroups = computed(() => [
+  {
+    id: 'simple-melee',
+    title: '简易近战武器',
+    items: weapons.filter(weapon => weapon.category === 'simple' && weapon.rangeType === 'melee'),
+  },
+  {
+    id: 'simple-ranged',
+    title: '简易远程武器',
+    items: weapons.filter(weapon => weapon.category === 'simple' && weapon.rangeType === 'ranged'),
+  },
+  {
+    id: 'martial-melee',
+    title: '军用近战武器',
+    items: weapons.filter(weapon => weapon.category === 'martial' && weapon.rangeType === 'melee'),
+  },
+  {
+    id: 'martial-ranged',
+    title: '军用远程武器',
+    items: weapons.filter(weapon => weapon.category === 'martial' && weapon.rangeType === 'ranged'),
+  },
+])
+
+const selectedWeapons = computed(() =>
+  weapons.filter(weapon => selectedWeaponIds.value.has(weapon.id))
 )
 
 const armorWarning = computed(() => {
@@ -79,6 +115,64 @@ function armorFormulaText(armor) {
   return `${armor.ac.base} + 敏捷调整值`
 }
 
+function weaponPropertyText(weapon) {
+  const propertyNames = (weapon.properties ?? [])
+    .map(id => getWeaponPropertyById(id)?.name ?? id)
+  if (weapon.range) propertyNames.push(`射程 ${weapon.range}`)
+  if (weapon.versatileDamage) propertyNames.push(`多用 ${weapon.versatileDamage}`)
+  return propertyNames.join('、') || '—'
+}
+
+function weaponMasteryText(weapon) {
+  return getWeaponMasteryById(weapon.mastery)?.name ?? weapon.mastery ?? '—'
+}
+
+function hasWeaponTraining(weapon) {
+  const trainingText = weaponTraining.value.join(' ')
+  if (trainingText.includes('军用武器')) return true
+  if (weapon.category === 'simple' && trainingText.includes('简易武器')) return true
+  if (
+    weapon.category === 'martial'
+    && weapon.properties?.includes('light')
+    && trainingText.includes('具备轻型词条的军用武器')
+  ) {
+    return true
+  }
+  return false
+}
+
+function weaponDescription(weapon) {
+  const parts = [
+    `${weapon.damage} ${weapon.damageType}`,
+    weapon.range ? `射程 ${weapon.range}` : '',
+    `词条：${weaponPropertyText(weapon)}`,
+    `精通：${weaponMasteryText(weapon)}`,
+  ].filter(Boolean)
+  return parts.join('；')
+}
+
+function toggleWeapon(weapon) {
+  const itemId = `weapon:${weapon.id}`
+  if (selectedWeaponIds.value.has(weapon.id)) {
+    removeInventoryItem(itemId)
+    return
+  }
+
+  addInventoryItem({
+    id: itemId,
+    sourceId: weapon.id,
+    type: 'weapon',
+    name: `${weapon.name} / ${weapon.nameEn}`,
+    qty: 1,
+    desc: weaponDescription(weapon),
+    damage: weapon.damage,
+    damageType: weapon.damageType,
+    range: weapon.range ?? '',
+    mastery: weaponMasteryText(weapon),
+    properties: weapon.properties ?? [],
+  })
+}
+
 function selectArmor(armorId) {
   setEquippedArmor(armorId)
 }
@@ -90,7 +184,7 @@ function toggleShield() {
 
 <template>
   <div class="equipment-page">
-    <StepNav step="10 / 10" label="装备选择" back-to="/hp" />
+    <StepNav step="9 / 10" label="装备选择" back-to="/abilities" />
     <AbilityBar />
 
     <header class="equipment-header">
@@ -158,6 +252,43 @@ function toggleShield() {
         </div>
       </section>
 
+      <section class="equipment-panel equipment-panel-wide">
+        <div class="equipment-kicker">武器</div>
+        <div class="weapon-summary">
+          <span>已选择 {{ selectedWeapons.length }} 件</span>
+          <strong>{{ selectedWeapons.map(weapon => weapon.name).join('、') || '未选择武器' }}</strong>
+        </div>
+        <div class="weapon-groups">
+          <section v-for="group in weaponGroups" :key="group.id" class="weapon-group">
+            <h3>{{ group.title }}</h3>
+            <div class="weapon-grid">
+              <button
+                v-for="weapon in group.items"
+                :key="weapon.id"
+                type="button"
+                :class="[
+                  'weapon-card',
+                  {
+                    selected: selectedWeaponIds.has(weapon.id),
+                    untrained: !hasWeaponTraining(weapon),
+                  },
+                ]"
+                @click="toggleWeapon(weapon)"
+              >
+                <span class="weapon-name">{{ weapon.name }}</span>
+                <span class="weapon-en">{{ weapon.nameEn }}</span>
+                <span class="weapon-damage">{{ weapon.damage }} {{ weapon.damageType }}</span>
+                <span class="weapon-meta">{{ weaponPropertyText(weapon) }}</span>
+                <span class="weapon-tags">
+                  <span>精通 {{ weaponMasteryText(weapon) }}</span>
+                  <span v-if="!hasWeaponTraining(weapon)">未熟练</span>
+                </span>
+              </button>
+            </div>
+          </section>
+        </div>
+      </section>
+
       <section class="equipment-panel">
         <div class="equipment-kicker">职业起始装备</div>
         <h2>{{ selectedClass?.name ?? '未选择职业' }}</h2>
@@ -174,8 +305,8 @@ function toggleShield() {
     </main>
 
     <div class="equipment-finish-bar">
-      <button class="equipment-finish-btn" type="button" @click="router.push('/sheet')">
-        查看角色卡 →
+      <button class="equipment-finish-btn" type="button" @click="router.push('/hp')">
+        设定生命值 →
       </button>
     </div>
   </div>
@@ -387,6 +518,106 @@ function toggleShield() {
   padding: 2px 6px;
 }
 
+.weapon-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  border: 1px solid var(--border-dark);
+  background: rgba(8, 7, 22, 0.28);
+  padding: 10px 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.weapon-summary strong {
+  color: var(--gold-light);
+  font-family: var(--font-title);
+  font-weight: 500;
+  text-align: right;
+}
+
+.weapon-groups {
+  display: grid;
+  gap: 18px;
+}
+
+.weapon-group h3 {
+  color: var(--gold-light);
+  font-size: 16px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border-dark);
+  padding-bottom: 8px;
+}
+
+.weapon-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.weapon-card {
+  min-height: 118px;
+  text-align: left;
+  border: 1px solid var(--border-dark);
+  background: rgba(8, 7, 22, 0.38);
+  padding: 14px;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+}
+
+.weapon-card:active {
+  transform: scale(0.99);
+}
+
+.weapon-card.selected {
+  border-color: var(--gold);
+  background: rgba(201, 168, 76, 0.12);
+}
+
+.weapon-card.untrained:not(.selected) {
+  opacity: 0.72;
+}
+
+.weapon-name,
+.weapon-damage {
+  display: block;
+  font-family: var(--font-title);
+}
+
+.weapon-name {
+  font-size: 16px;
+  color: var(--gold-light);
+}
+
+.weapon-en,
+.weapon-meta {
+  display: block;
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.weapon-damage {
+  font-size: 18px;
+  margin-top: 10px;
+}
+
+.weapon-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.weapon-tags span {
+  border: 1px solid rgba(201, 168, 76, 0.22);
+  color: var(--gold);
+  font-size: 11px;
+  padding: 2px 6px;
+}
+
 .equipment-finish-bar {
   padding: 16px 20px 32px;
   display: flex;
@@ -413,7 +644,8 @@ function toggleShield() {
 }
 
 @media (min-width: 720px) {
-  .armor-grid {
+  .armor-grid,
+  .weapon-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -423,7 +655,8 @@ function toggleShield() {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .armor-grid {
+  .armor-grid,
+  .weapon-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

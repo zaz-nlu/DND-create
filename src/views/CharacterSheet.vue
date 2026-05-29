@@ -167,6 +167,17 @@ const classProficiencies = computed(() => {
 
 const raceMechanics = computed(() => selectedRace.value?.mechanics ?? null)
 
+// 解析种族的额外选择（龙族血统、精灵血系、巨人先祖等）
+const resolvedRaceChoices = computed(() => {
+  const race = selectedRace.value
+  if (!race?.raceChoices) return []
+  return race.raceChoices.map(choice => {
+    const chosenId = character.race.choices?.[choice.id]
+    const chosen = choice.options.find(o => o.id === chosenId) ?? null
+    return { ...choice, chosen }
+  }).filter(c => c.chosen)
+})
+
 function startNewCharacter() {
   createNewCharacter()
   router.push('/')
@@ -357,6 +368,17 @@ function startNewCharacter() {
         <div v-for="trait in selectedRace.traits" :key="trait.id" class="sheet-trait-row">
           <span class="sheet-trait-name">{{ trait.name }}</span>
           <p class="sheet-trait-desc">{{ trait.desc }}</p>
+        </div>
+        <div
+          v-for="choice in resolvedRaceChoices"
+          :key="choice.id"
+          class="sheet-trait-row sheet-trait-row--choice"
+        >
+          <div class="sheet-trait-choice-header">
+            <span class="sheet-trait-name">{{ choice.label }}</span>
+            <span class="sheet-trait-choice-badge">{{ choice.chosen.label }}</span>
+          </div>
+          <p class="sheet-trait-desc">{{ choice.chosen.detail }}</p>
         </div>
       </div>
     </section>
@@ -792,6 +814,28 @@ function startNewCharacter() {
   font-size: 12px;
   color: var(--text-muted);
   line-height: 1.55;
+}
+
+.sheet-trait-row--choice {
+  background: rgba(201, 168, 76, 0.04);
+  border-left: 2px solid rgba(201, 168, 76, 0.3);
+}
+
+.sheet-trait-choice-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.sheet-trait-choice-badge {
+  font-family: var(--font-title);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(201, 168, 76, 0.15);
+  border: 1px solid rgba(201, 168, 76, 0.35);
+  color: var(--gold-light);
 }
 
 /* Class features */

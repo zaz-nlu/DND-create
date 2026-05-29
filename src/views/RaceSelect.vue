@@ -43,6 +43,20 @@ function selectRaceSkill(skill) {
   setRaceChoice('skillProficiency', skill)
 }
 
+// 额外种族选择（龙裔血统、精灵血系、歌利亚先祖等）
+const raceExtraChoices = computed(() => selectedRace.value?.raceChoices ?? [])
+
+const isRaceExtraChoicesValid = computed(() => {
+  if (raceExtraChoices.value.length === 0) return true
+  return raceExtraChoices.value.every(choice =>
+    !!character.race.choices?.[choice.id]
+  )
+})
+
+function selectRaceExtra(choiceId, optionId) {
+  setRaceChoice(choiceId, optionId)
+}
+
 function openModal(race) {
   activeRace.value = race
 }
@@ -52,7 +66,7 @@ function closeModal() {
 }
 
 function goNext() {
-  if (!selectedId.value || !isRaceSkillValid.value) return
+  if (!selectedId.value || !isRaceSkillValid.value || !isRaceExtraChoicesValid.value) return
   router.push('/class')
 }
 </script>
@@ -135,6 +149,29 @@ function goNext() {
           @click="selectRaceSkill(skill)"
         >
           {{ skill }}
+        </button>
+      </div>
+    </section>
+
+    <section
+      v-for="choice in raceExtraChoices"
+      :key="choice.id"
+      class="race-skill-section"
+    >
+      <div class="race-skill-header">
+        <span class="race-skill-title">{{ choice.label }}</span>
+        <span class="race-skill-sub">{{ choice.desc }}</span>
+      </div>
+      <div class="race-extra-grid">
+        <button
+          v-for="opt in choice.options"
+          :key="opt.id"
+          type="button"
+          :class="['race-extra-option', { selected: character.race.choices?.[choice.id] === opt.id }]"
+          @click="selectRaceExtra(choice.id, opt.id)"
+        >
+          <span class="race-extra-label">{{ opt.label }}</span>
+          <span class="race-extra-detail">{{ opt.detail }}</span>
         </button>
       </div>
     </section>

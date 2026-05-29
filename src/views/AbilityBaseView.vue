@@ -661,7 +661,7 @@ onBeforeUnmount(clearRollTimers)
 
 .ability-base-footer {
   position: fixed;
-  inset: auto 0 0;
+  inset: auto 0 var(--pcb-height, 0px);
   padding: 16px 20px env(safe-area-inset-bottom, 0px);
   display: flex;
   justify-content: flex-end;

@@ -17,12 +17,16 @@ const currentClass  = computed(() => classes.find(c => c.id === character.class.
 const hitDie        = computed(() => currentClass.value?.hitDie ?? 'd8')
 const dieMax        = computed(() => parseDie(hitDie.value))
 const level         = computed(() => character.level)
-const conScore      = computed(() => getAbilityTotalScores(character)['体质'] || 10)
+const conScore      = computed(() => {
+  const s = getAbilityTotalScores(character)['体质']
+  return (Number.isFinite(s) && s > 0) ? s : 10
+})
 const conModValue   = computed(() => Math.floor((conScore.value - 10) / 2))
 const method        = computed(() => character.hp.method)
 const rolls         = computed(() => character.hp.rolls)
-const rolledCount   = computed(() => rolls.value.filter(r => r > 0).length)
-const allRolled     = computed(() => rolledCount.value >= level.value)
+// 1级固定满值不需掷，从index 1（2级）起算
+const rolledCount   = computed(() => rolls.value.slice(1).filter(r => r > 0).length)
+const allRolled     = computed(() => level.value <= 1 || rolledCount.value >= level.value - 1)
 
 // 健壮专长：来源可以是人类额外专长或背景专长
 const selectedBackground = computed(() => backgrounds.find(b => b.id === character.background.id) ?? null)
@@ -65,6 +69,8 @@ function selectMethod(m) {
   rolling.value      = []
   displayRolls.value = []
   landed.value       = []
+  // 1级固定取满值
+  if (m === 'rolled') setHpRoll(0, dieMax.value)
 }
 
 function rollLevel(i) {
@@ -99,13 +105,13 @@ function rollLevel(i) {
 
 function confirm() {
   commitHpMax(totalHp.value)
-  router.push('/equipment')
+  router.push('/sheet')
 }
 </script>
 
 <template>
   <div class="hp-page">
-    <StepNav step="9 / 10" label="生命值" back-to="/abilities" />
+    <StepNav step="10 / 10" label="生命值" back-to="/equipment" />
     <AbilityBar />
     <!-- ── 头部 ── -->
     <header class="hp-header">
@@ -221,7 +227,24 @@ function confirm() {
             <span class="hp-dice-lv-text">级</span>
           </div>
 
+          <!-- 1级固定满值，不可掷 -->
+          <div v-if="i === 1" class="hp-dice-fixed">
+            <span class="hp-dice-fixed-val">{{ dieMax }}</span>
+            <span class="hp-dice-fixed-label">{{ hitDie }} 满值</span>
+          </div>
+
+          <!-- 1级结果（含体调），始终可见 -->
+          <div v-if="i === 1" class="hp-dice-result hp-dice-result--visible">
+            <div class="hp-dice-result-row">
+              <span class="hp-result-roll">{{ dieMax }}</span>
+              <span class="hp-result-oper">{{ conModValue >= 0 ? '+' : '' }}{{ conModValue }}</span>
+            </div>
+            <div class="hp-result-total">= {{ dieMax + conModValue }}</div>
+          </div>
+
+          <!-- 2级以上可掷 -->
           <DiceButton
+            v-else
             :die="hitDie"
             :value="
               rolling[i - 1]
@@ -238,8 +261,12 @@ function confirm() {
             @click="rollLevel(i - 1)"
           />
 
-          <!-- 结果展示 -->
-          <div class="hp-dice-result" :class="{ 'hp-dice-result--visible': rolls[i - 1] > 0 && !rolling[i - 1] }">
+          <!-- 2级以上结果展示 -->
+          <div
+            v-if="i > 1"
+            class="hp-dice-result"
+            :class="{ 'hp-dice-result--visible': rolls[i - 1] > 0 && !rolling[i - 1] }"
+          >
             <div class="hp-dice-result-row">
               <span class="hp-result-roll">{{ rolls[i - 1] }}</span>
               <span class="hp-result-oper">{{ conModValue >= 0 ? '+' : '' }}{{ conModValue }}</span>
@@ -258,7 +285,7 @@ function confirm() {
             :style="{ width: `${(rolledCount / level) * 100}%` }"
           />
         </div>
-        <span class="hp-progress-text">{{ rolledCount }} / {{ level }} 级已骰</span>
+        <span class="hp-progress-text">{{ rolledCount }} / {{ Math.max(level - 1, 0) }} 级已骰（1级固定满值）</span>
       </div>
 
       <!-- 合计 -->
@@ -554,6 +581,35 @@ function confirm() {
   display: flex;
   align-items: center;
   gap: 14px;
+}
+
+/* 1级固定满值展示 */
+.hp-dice-fixed {
+  width: 88px;
+  height: 88px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(201, 168, 76, 0.4);
+  border-radius: 12px;
+  background: rgba(201, 168, 76, 0.08);
+  gap: 4px;
+}
+
+.hp-dice-fixed-val {
+  font-family: var(--font-deco);
+  font-size: 32px;
+  color: var(--gold-bright);
+  line-height: 1;
+}
+
+.hp-dice-fixed-label {
+  font-family: var(--font-title);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--gold);
 }
 
 /* 等级标签 */

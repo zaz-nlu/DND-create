@@ -415,6 +415,52 @@
   background: rgba(201, 168, 76, 0.12);
 }
 
+.race-extra-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 8px;
+}
+
+.race-extra-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--r, 8px);
+  background: rgba(255, 255, 255, 0.04);
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.race-extra-option:active {
+  transform: scale(0.98);
+}
+
+.race-extra-option.selected {
+  border-color: rgba(201, 168, 76, 0.5);
+  background: rgba(201, 168, 76, 0.12);
+}
+
+.race-extra-label {
+  font-family: var(--font-title);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.race-extra-option.selected .race-extra-label {
+  color: var(--gold-light);
+}
+
+.race-extra-detail {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
 @media (max-width: 360px) {
   .race-card-body {
     width: 66%;
@@ -423,6 +469,10 @@
 
   .race-name {
     font-size: 15px;
+  }
+
+  .race-extra-grid {
+    grid-template-columns: 1fr;
   }
 }
 

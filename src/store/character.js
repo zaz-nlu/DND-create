@@ -392,10 +392,16 @@ export function addInventoryItem(item) {
   // item: { id, name, qty, type, desc }
   character.inventory.items.push({
     id: item.id ?? `item_${Date.now()}`,
+    sourceId: item.sourceId ?? null,
     name: item.name ?? '',
     qty: Number.isFinite(item.qty) ? item.qty : 1,
     type: item.type ?? 'misc',
     desc: item.desc ?? '',
+    damage: item.damage ?? '',
+    damageType: item.damageType ?? '',
+    range: item.range ?? '',
+    mastery: item.mastery ?? '',
+    properties: Array.isArray(item.properties) ? item.properties : [],
   })
   touchDraft()
 }
