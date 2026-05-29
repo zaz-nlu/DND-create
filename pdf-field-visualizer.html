@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF字段位置检测工具</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin-bottom: 10px;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .upload-panel {
+            width: 250px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-right: 1px solid #e0e0e0;
+            overflow-y: auto;
+        }
+
+        .upload-section {
+            margin-bottom: 20px;
+        }
+
+        .upload-section h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .upload-input {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            border: 2px dashed #667eea;
+            border-radius: 5px;
+            cursor: pointer;
+            text-align: center;
+            background: white;
+            transition: all 0.3s;
+        }
+
+        .upload-input:hover {
+            border-color: #764ba2;
+            background: #f0f0f0;
+        }
+
+        .json-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            resize: vertical;
+            height: 200px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .pdf-container {
+            flex: 1;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+            background: #e0e0e0;
+        }
+
+        .pdf-wrapper {
+            position: relative;
+            background: white;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .fields-list {
+            width: 250px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-left: 1px solid #e0e0e0;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .fields-list.active {
+            display: block;
+        }
+
+        .fields-list h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .field-item {
+            padding: 8px;
+            margin-bottom: 8px;
+            background: white;
+            border-left: 4px solid #667eea;
+            border-radius: 3px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .field-item:hover {
+            background: #e8eaf6;
+            transform: translateX(5px);
+        }
+
+        .field-name {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .field-coords {
+            color: #666;
+            font-size: 11px;
+            margin-top: 3px;
+        }
+
+        .status {
+            padding: 10px;
+            background: #e3f2fd;
+            color: #1976d2;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-size: 12px;
+            display: none;
+        }
+
+        .status.active {
+            display: block;
+        }
+
+        .controls {
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .control-btn {
+            padding: 8px 15px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .control-btn:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .checkbox {
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .checkbox input {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 PDF字段位置检测工具</h1>
+            <p>上传PDF并查看字段位置映射</p>
+        </div>
+
+        <div class="main-content">
+            <div class="upload-panel">
+                <div class="status" id="status"></div>
+
+                <div class="upload-section">
+                    <h3>📄 上传PDF</h3>
+                    <input type="file" id="pdfInput" class="upload-input" accept=".pdf" />
+                </div>
+
+                <div class="upload-section">
+                    <h3>📍 字段配置JSON</h3>
+                    <textarea id="fieldsJson" class="json-input" placeholder="粘贴JSON字段配置..."></textarea>
+                    <button class="btn" onclick="loadFields()" style="margin-top: 10px;">加载字段</button>
+                </div>
+
+                <div class="upload-section">
+                    <h3>🎨 选项</h3>
+                    <div class="checkbox">
+                        <input type="checkbox" id="showLabels" checked>
+                        <label for="showLabels">显示字段名称</label>
+                    </div>
+                    <div class="checkbox">
+                        <input type="checkbox" id="showCoords" checked>
+                        <label for="showCoords">显示坐标值</label>
+                    </div>
+                </div>
+
+                <button class="btn" onclick="downloadConfig()">💾 下载配置</button>
+            </div>
+
+            <div class="pdf-container">
+                <div class="pdf-wrapper" id="pdfWrapper">
+                    <canvas id="pdfCanvas"></canvas>
+                </div>
+            </div>
+
+            <div class="fields-list" id="fieldsList">
+                <h3>📍 字段列表</h3>
+                <div id="fieldsContainer"></div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="control-btn" onclick="zoomIn()">🔍+ 放大</button>
+            <button class="control-btn" onclick="zoomOut()">🔍- 缩小</button>
+            <button class="control-btn" onclick="resetZoom()">🔄 重置</button>
+        </div>
+    </div>
+
+    <script>
+        let pdfDoc = null;
+        let fields = {};
+        let zoom = 1;
+        let currentScale = 1;
+
+        // 初始化PDF.js
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // PDF上传处理
+        document.getElementById('pdfInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const arrayBuffer = await file.arrayBuffer();
+            pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+            updateStatus(`✅ PDF已加载 (${pdfDoc.numPages}页)`);
+            renderPage(1);
+        });
+
+        async function renderPage(pageNum) {
+            if (!pdfDoc) {
+                updateStatus('❌ 请先上传PDF');
+                return;
+            }
+
+            const page = await pdfDoc.getPage(pageNum);
+            const viewport = page.getViewport({ scale: 1.5 * zoom });
+
+            const canvas = document.getElementById('pdfCanvas');
+            const context = canvas.getContext('2d');
+
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+
+            await page.render({
+                canvasContext: context,
+                viewport: viewport
+            }).promise;
+
+            // 绘制字段
+            drawFields(context, viewport, 1.5 * zoom);
+        }
+
+        function drawFields(context, viewport, scale) {
+            const showLabels = document.getElementById('showLabels').checked;
+            const showCoords = document.getElementById('showCoords').checked;
+
+            Object.entries(fields).forEach(([name, field]) => {
+                if (field.page !== 1) return; // 只显示第1页
+
+                const x = field.x * scale;
+                const y = field.y * scale;
+                const width = 80 * scale;
+                const height = 20 * scale;
+
+                // 绘制矩形框
+                context.strokeStyle = '#FF6B6B';
+                context.lineWidth = 2;
+                context.strokeRect(x, y, width, height);
+
+                // 绘制填充（半透明）
+                context.fillStyle = 'rgba(255, 107, 107, 0.1)';
+                context.fillRect(x, y, width, height);
+
+                // 绘制标签
+                if (showLabels) {
+                    context.fillStyle = '#FF6B6B';
+                    context.font = `${12 * Math.sqrt(scale)}px Arial`;
+                    context.fillText(name, x + 5, y - 5);
+                }
+
+                // 绘制坐标
+                if (showCoords) {
+                    context.fillStyle = '#4ECDC4';
+                    context.font = `${10 * Math.sqrt(scale)}px Arial`;
+                    context.fillText(`(${field.x}, ${field.y})`, x + 5, y + height + 15);
+                }
+            });
+        }
+
+        function loadFields() {
+            const jsonText = document.getElementById('fieldsJson').value;
+            try {
+                fields = JSON.parse(jsonText);
+                updateStatus(`✅ 加载了 ${Object.keys(fields).length} 个字段`);
+                renderPage(1);
+                displayFieldsList();
+            } catch (error) {
+                updateStatus(`❌ JSON格式错误: ${error.message}`);
+            }
+        }
+
+        function displayFieldsList() {
+            const fieldsList = document.getElementById('fieldsList');
+            const fieldsContainer = document.getElementById('fieldsContainer');
+
+            fieldsContainer.innerHTML = '';
+
+            Object.entries(fields).forEach(([name, field]) => {
+                const item = document.createElement('div');
+                item.className = 'field-item';
+                item.innerHTML = `
+                    <div class="field-name">${name}</div>
+                    <div class="field-coords">
+                        Page: ${field.page}<br>
+                        X: ${field.x}, Y: ${field.y}
+                    </div>
+                `;
+                item.onclick = () => {
+                    // 可以添加高亮字段的逻辑
+                };
+                fieldsContainer.appendChild(item);
+            });
+
+            fieldsList.classList.add('active');
+        }
+
+        function updateStatus(message) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.classList.add('active');
+            setTimeout(() => status.classList.remove('active'), 5000);
+        }
+
+        function zoomIn() {
+            zoom = Math.min(zoom + 0.2, 3);
+            renderPage(1);
+        }
+
+        function zoomOut() {
+            zoom = Math.max(zoom - 0.2, 0.5);
+            renderPage(1);
+        }
+
+        function resetZoom() {
+            zoom = 1;
+            renderPage(1);
+        }
+
+        function downloadConfig() {
+            if (Object.keys(fields).length === 0) {
+                updateStatus('❌ 没有字段配置可下载');
+                return;
+            }
+            const dataStr = JSON.stringify(fields, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'pdf-fields-config.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // 预设默认JSON
+        document.addEventListener('DOMContentLoaded', () => {
+            const defaultJson = {
+                "Text1": {"page": 1, "x": 138, "y": 766},
+                "Check Box3": {"page": 1, "x": 345, "y": 713},
+                "Check Box4": {"page": 1, "x": 130, "y": 598},
+                "Text6": {"page": 1, "x": 85, "y": 744},
+                "Text7": {"page": 1, "x": 200, "y": 744}
+            };
+            document.getElementById('fieldsJson').value = JSON.stringify(defaultJson, null, 2);
+        });
+    </script>
+</body>
+</html>

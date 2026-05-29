@@ -619,6 +619,9 @@ function goNext() {
 
 .spells-browser {
   padding: 12px;
+  max-height: calc(100dvh - 320px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .spell-step-list {
@@ -716,6 +719,7 @@ function goNext() {
 .spell-results {
   display: grid;
   gap: 8px;
+  contain: layout style paint;
 }
 
 .spell-row {
@@ -1210,6 +1214,20 @@ function goNext() {
 
   .spells-footer button {
     width: 100%;
+  }
+
+  .spells-browser {
+    max-height: calc(100dvh - 360px - env(safe-area-inset-bottom, 0px));
+    padding: 10px;
+  }
+
+  .spell-results {
+    gap: 6px;
+  }
+
+  .spell-row {
+    min-height: 64px;
+    padding: 8px;
   }
 }
 </style>

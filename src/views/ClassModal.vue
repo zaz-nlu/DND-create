@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, Teleport, Transition } from 'vue'
+import { ref, computed, Teleport, Transition, nextTick } from 'vue'
 import { character, setClass, setSubclass } from '../store/character.js'
 import '../styles/class-modal.css'
 
@@ -10,14 +10,19 @@ const emit = defineEmits(['close'])
 
 const openFeatures = ref(new Set())
 const openSubclasses = ref(new Set())
+const subclassSectionRef = ref(null)
+const needsSubclassPrompt = ref(false)
 
 const isSelected = computed(() => character.class.id === props.cls?.id)
 const canSelectSubclass = computed(() => character.level >= (props.cls?.subclassLevel ?? 3))
 const selectedSubclassId = computed(() => character.class.subclassId)
+const hasSubclasses = computed(() => (props.cls?.subclasses?.length ?? 0) > 0)
+const needsSubclass = computed(() => isSelected && canSelectSubclass.value && hasSubclasses && !selectedSubclassId.value)
 
 function pickSubclass(scId) {
   if (!canSelectSubclass.value) return
   setSubclass(scId)
+  needsSubclassPrompt.value = false
 }
 
 const classRgb = computed(() => {
@@ -45,10 +50,31 @@ function toggleSubclass(id) {
   }
 }
 
-function selectClass() {
+async function selectClass() {
   if (!props.cls) return
-  setClass(props.cls.id)
-  emit('close')
+
+  // 职业未选中，先选择职业
+  if (!isSelected.value) {
+    setClass(props.cls.id)
+
+    // 如果需要选择子职业，scroll到该部分
+    if (canSelectSubclass.value && hasSubclasses.value) {
+      needsSubclassPrompt.value = true
+      await nextTick()
+      subclassSectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    } else {
+      // 不需要子职业，直接关闭
+      emit('close')
+    }
+  } else if (needsSubclass.value) {
+    // 职业已选中但还需要子职业，scroll到子职业部分
+    needsSubclassPrompt.value = true
+    await nextTick()
+    subclassSectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  } else {
+    // 职业已选中，子职业已选中或不需要，关闭
+    emit('close')
+  }
 }
 
 function handleOverlayClick(e) {
@@ -202,14 +228,17 @@ function handleOverlayClick(e) {
             </div>
 
             <!-- 子职业 -->
-            <div class="class-section">
+            <div ref="subclassSectionRef" class="class-section">
               <div class="class-section-title">子职业</div>
 
               <div v-if="!canSelectSubclass" class="subclass-locked-notice">
                 达到 {{ cls.subclassLevel }} 级后即可选择子职业
               </div>
               <div v-else-if="!isSelected" class="subclass-locked-notice subclass-locked-notice--info">
-                先点底部「选择此职业」，再选子职业
+                👈 先选择职业
+              </div>
+              <div v-else-if="needsSubclassPrompt" class="subclass-locked-notice subclass-locked-notice--active">
+                ✦ 请选择一个子职业来完成设置
               </div>
 
               <div class="subclass-cards">
@@ -283,18 +312,27 @@ function handleOverlayClick(e) {
           <!-- 底部操作栏 -->
           <div class="class-modal-actions">
             <button
-              :class="['class-btn-select', { 'already-selected': isSelected }]"
+              :class="['class-btn-select', { 'already-selected': isSelected && !needsSubclass }]"
               type="button"
               @click="selectClass"
             >
-              {{ isSelected ? '✦ 已选择此职业' : '选择此职业' }}
+              <template v-if="!isSelected">
+                选择此职业
+              </template>
+              <template v-else-if="needsSubclass">
+                👇 选择子职业后完成
+              </template>
+              <template v-else>
+                ✦ 已选择此职业
+              </template>
             </button>
             <button
+              :disabled="needsSubclass"
               class="class-btn-close"
               type="button"
               @click="emit('close')"
             >
-              关闭
+              {{ needsSubclass ? '需选子职业' : '关闭' }}
             </button>
           </div>
 

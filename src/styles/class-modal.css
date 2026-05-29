@@ -588,6 +588,18 @@
 
 .class-btn-close:active { transform: scale(0.97); }
 
+.class-btn-close:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  color: var(--text-dim);
+  border-color: rgba(201, 168, 76, 0.2);
+}
+
+.class-btn-close:disabled:hover {
+  color: var(--text-dim);
+  border-color: rgba(201, 168, 76, 0.2);
+}
+
 /* ── 进入/离开动画 ── */
 .class-modal-enter-active {
   transition: opacity 0.25s ease;
@@ -641,6 +653,25 @@
   color: var(--gold, #c9a84c);
   border-color: rgba(201, 168, 76, 0.4);
   background: rgba(201, 168, 76, 0.06);
+}
+
+.subclass-locked-notice--active {
+  color: var(--gold-bright, #e0c974);
+  border-color: rgba(201, 168, 76, 0.6);
+  background: rgba(201, 168, 76, 0.14);
+  font-weight: 600;
+  animation: pulse-border 2s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% {
+    border-color: rgba(201, 168, 76, 0.4);
+    box-shadow: 0 0 0 0 rgba(201, 168, 76, 0);
+  }
+  50% {
+    border-color: rgba(201, 168, 76, 0.7);
+    box-shadow: 0 0 8px rgba(201, 168, 76, 0.3);
+  }
 }
 
 .subclass-card--selected {

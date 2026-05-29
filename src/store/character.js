@@ -69,6 +69,10 @@ function createDefaultCharacter(id = createDraftId()) {
       gold: 0,
       items: [],
     },
+    equipment: {
+      armorId: null,
+      shield: false,
+    },
     notes: '',
   }
 }
@@ -141,6 +145,10 @@ function normalizeDraft(raw) {
     inventory: {
       gold: Number.isFinite(raw?.inventory?.gold) ? raw.inventory.gold : 0,
       items: Array.isArray(raw?.inventory?.items) ? raw.inventory.items : [],
+    },
+    equipment: {
+      armorId: raw?.equipment?.armorId ?? null,
+      shield: Boolean(raw?.equipment?.shield),
     },
     notes: typeof raw?.notes === 'string' ? raw.notes : '',
   }
@@ -406,6 +414,16 @@ export function removeInventoryItem(itemId) {
 
 export function setGold(value) {
   character.inventory.gold = Math.max(0, Number.isFinite(Number(value)) ? Number(value) : 0)
+  touchDraft()
+}
+
+export function setEquippedArmor(armorId) {
+  character.equipment.armorId = armorId || null
+  touchDraft()
+}
+
+export function setEquippedShield(value) {
+  character.equipment.shield = Boolean(value)
   touchDraft()
 }
 

@@ -1,5 +1,6 @@
 <script setup>
 import { RouterView } from 'vue-router'
+import PendingChoicesBar from './components/PendingChoicesBar.vue'
 </script>
 
 <template>
@@ -8,4 +9,5 @@ import { RouterView } from 'vue-router'
       <component :is="Component" />
     </Transition>
   </RouterView>
+  <PendingChoicesBar />
 </template>

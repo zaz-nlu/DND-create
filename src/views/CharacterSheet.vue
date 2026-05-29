@@ -10,8 +10,10 @@ import { races } from '../data/races.js'
 import { character, createNewCharacter } from '../store/character.js'
 import { ABILITY_EN, ABILITY_IDS, abilityMod, modStr } from '../utils/abilities.js'
 import { getAbilityTotalRows } from '../utils/abilityTotals.js'
+import { calculateCharacterAc, getEquippedArmor, hasArmorTraining, hasShieldTraining } from '../utils/equipment.js'
 import { getRequirementsForLevel } from '../utils/progression.js'
 import StepNav from './StepNav.vue'
+import PdfExporter from '../components/PdfExporter.vue'
 
 const router = useRouter()
 
@@ -84,15 +86,17 @@ const proficientSkillsList = computed(() => proficientSkills.value.filter(s => s
 const dexMod = computed(() => abilityMap.value['敏捷']?.mod ?? 0)
 const initiative = computed(() => dexMod.value)
 const initiativeText = computed(() => (initiative.value >= 0 ? '+' : '') + initiative.value)
-const acBase = computed(() => {
-  const formula = selectedSubclass.value?.acFormula ?? selectedClass.value?.acFormula
-  if (formula) {
-    return formula.base + formula.abilities.reduce(
-      (sum, a) => sum + (abilityMap.value[a]?.mod ?? 0), 0
-    )
-  }
-  return 10 + dexMod.value
-})
+const equippedArmor = computed(() => getEquippedArmor(character))
+const armorTrained = computed(() => hasArmorTraining(selectedClass.value, equippedArmor.value))
+const shieldTrained = computed(() => hasShieldTraining(selectedClass.value))
+const acBase = computed(() =>
+  calculateCharacterAc({
+    character,
+    selectedClass: selectedClass.value,
+    selectedSubclass: selectedSubclass.value,
+    abilityMap: abilityMap.value,
+  })
+)
 
 const generalFeatSlots = computed(() => {
   const cls = selectedClass.value
@@ -192,6 +196,11 @@ function startNewCharacter() {
         <span class="sheet-profbonus">熟练加值 +{{ profBonus }}</span>
       </div>
     </header>
+
+    <!-- PDF Export bar -->
+    <div class="sheet-export-bar">
+      <PdfExporter />
+    </div>
 
     <!-- Combat stats bar -->
     <div class="sheet-combat-bar">
@@ -390,6 +399,16 @@ function startNewCharacter() {
     <section v-if="selectedClass || selectedBackground" class="sheet-section">
       <h2 class="sheet-section-title">起始装备</h2>
       <div class="sheet-equipment-list">
+        <div class="sheet-equipment-item">
+          <span class="sheet-equipment-source">当前穿戴</span>
+          <p>
+            护甲：{{ equippedArmor ? `${equippedArmor.nameZh}（${equippedArmor.name}）` : '未穿护甲' }}
+            <span v-if="equippedArmor && !armorTrained"> · 未受训</span>
+          </p>
+          <p class="sheet-equipment-alt">
+            盾牌：{{ character.equipment?.shield ? (shieldTrained ? '持用（+2 AC）' : '持用（未受训，不加 AC）') : '未持用' }}
+          </p>
+        </div>
         <div v-if="selectedClass?.equipment" class="sheet-equipment-item">
           <span class="sheet-equipment-source">{{ selectedClass.name }}</span>
           <p>{{ selectedClass.equipment.a }}</p>
@@ -956,6 +975,18 @@ function startNewCharacter() {
 
 .sheet-new-btn:active {
   transform: scale(0.97);
+}
+
+.sheet-export-bar {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  margin: 0 0 8px;
+  background: rgba(102, 126, 234, 0.05);
+  border-top: 1px solid rgba(102, 126, 234, 0.1);
+  border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+  flex-wrap: wrap;
 }
 
 @media (min-width: 600px) {

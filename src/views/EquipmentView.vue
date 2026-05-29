@@ -1,11 +1,14 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import AbilityBar from '../components/AbilityBar.vue'
+import { armors } from '../data/armor.js'
 import { backgrounds } from '../data/backgrounds.js'
 import { classes } from '../data/classes.js'
-import { character } from '../store/character.js'
+import { character, setEquippedArmor, setEquippedShield } from '../store/character.js'
+import { getAbilityTotalRows } from '../utils/abilityTotals.js'
+import { calculateCharacterAc, getEquippedArmor, hasArmorTraining, hasShieldTraining } from '../utils/equipment.js'
 import StepNav from './StepNav.vue'
-import AbilityBar from '../components/AbilityBar.vue'
 
 const router = useRouter()
 
@@ -16,20 +19,145 @@ const selectedClass = computed(() =>
 const selectedBackground = computed(() =>
   backgrounds.find(background => background.id === character.background.id) ?? null
 )
+
+const selectedSubclass = computed(() =>
+  selectedClass.value?.subclasses?.find(subclass => subclass.id === character.class.subclassId) ?? null
+)
+
+const abilityRows = computed(() => getAbilityTotalRows(character))
+const abilityMap = computed(() => Object.fromEntries(abilityRows.value.map(row => [row.id, row])))
+
+const dexMod = computed(() => abilityMap.value['敏捷']?.mod ?? 0)
+const strScore = computed(() => abilityMap.value['力量']?.total ?? 10)
+
+const equippedArmor = computed(() => getEquippedArmor(character))
+const shieldTrained = computed(() => hasShieldTraining(selectedClass.value))
+const selectedAc = computed(() =>
+  calculateCharacterAc({
+    character,
+    selectedClass: selectedClass.value,
+    selectedSubclass: selectedSubclass.value,
+    abilityMap: abilityMap.value,
+  })
+)
+
+const armorOptions = computed(() =>
+  armors.map(armor => ({
+    ...armor,
+    trained: hasArmorTraining(selectedClass.value, armor),
+    strengthPenalty: armor.strengthRequired && strScore.value < armor.strengthRequired,
+    acValue: calculateArmorAcPreview(armor),
+  }))
+)
+
+const armorWarning = computed(() => {
+  if (!equippedArmor.value) return ''
+  if (!hasArmorTraining(selectedClass.value, equippedArmor.value)) {
+    return '当前职业未受训于这类护甲：力量或敏捷相关 D20 检定具有劣势，并且不能施法。'
+  }
+  if (equippedArmor.value.strengthRequired && strScore.value < equippedArmor.value.strengthRequired) {
+    return `力量不足 ${equippedArmor.value.strengthRequired}，穿戴后移动速度减少 10 尺。`
+  }
+  return ''
+})
+
+const shieldWarning = computed(() => {
+  if (!character.equipment.shield || shieldTrained.value) return ''
+  return '当前职业没有盾牌受训，因此盾牌不会提供 +2 AC。'
+})
+
+function calculateArmorAcPreview(armor) {
+  const dexBonus = armor.ac.dex
+    ? Math.min(dexMod.value, armor.ac.dexMax ?? dexMod.value)
+    : 0
+  return armor.ac.base + dexBonus
+}
+
+function armorFormulaText(armor) {
+  if (!armor.ac.dex) return `${armor.ac.base}`
+  if (armor.ac.dexMax) return `${armor.ac.base} + 敏捷调整值（最大 ${armor.ac.dexMax}）`
+  return `${armor.ac.base} + 敏捷调整值`
+}
+
+function selectArmor(armorId) {
+  setEquippedArmor(armorId)
+}
+
+function toggleShield() {
+  setEquippedShield(!character.equipment.shield)
+}
 </script>
 
 <template>
   <div class="equipment-page">
-    <StepNav step="10 / 10" label="装备占位" back-to="/hp" />
+    <StepNav step="10 / 10" label="装备选择" back-to="/hp" />
     <AbilityBar />
 
     <header class="equipment-header">
       <div class="equipment-step-badge">步骤 10 / 10 · 装备</div>
-      <h1 class="equipment-title">装备清单稍后整理</h1>
-      <p class="equipment-sub">流程已经能走到终点。下一轮可以把职业装备、背景装备和金币方案拆成可选择项。</p>
+      <h1 class="equipment-title">选择护甲与盾牌</h1>
+      <p class="equipment-sub">这里先只处理会影响角色卡的穿戴项。武器、工具和冒险装备保留为清单数据，不强行做成商店。</p>
     </header>
 
     <main class="equipment-layout">
+      <section class="equipment-panel equipment-panel-summary">
+        <div class="equipment-kicker">当前防护</div>
+        <div class="equipment-ac-row">
+          <div>
+            <h2>AC {{ selectedAc }}</h2>
+            <p>{{ equippedArmor ? `${equippedArmor.nameZh} · ${equippedArmor.name}` : '未穿护甲' }}</p>
+          </div>
+          <button
+            type="button"
+            :class="['shield-toggle', { active: character.equipment.shield }]"
+            @click="toggleShield"
+          >
+            盾牌 {{ character.equipment.shield ? '+2' : '未持用' }}
+          </button>
+        </div>
+        <div class="equipment-summary-grid">
+          <span>敏捷调整值</span><strong>{{ dexMod >= 0 ? `+${dexMod}` : dexMod }}</strong>
+          <span>职业护甲受训</span><strong>{{ selectedClass?.armor?.length ? selectedClass.armor.join('、') : '无' }}</strong>
+          <span>盾牌受训</span><strong>{{ shieldTrained ? '有' : '无' }}</strong>
+        </div>
+        <p v-if="armorWarning" class="equipment-warning">{{ armorWarning }}</p>
+        <p v-if="shieldWarning" class="equipment-warning">{{ shieldWarning }}</p>
+      </section>
+
+      <section class="equipment-panel equipment-panel-wide">
+        <div class="equipment-kicker">护甲</div>
+        <div class="armor-grid">
+          <button
+            type="button"
+            :class="['armor-card', { selected: !character.equipment.armorId }]"
+            @click="selectArmor(null)"
+          >
+            <span class="armor-name">不穿护甲</span>
+            <span class="armor-ac">AC {{ 10 + dexMod }}</span>
+            <span class="armor-meta">基础防御</span>
+          </button>
+
+          <button
+            v-for="armor in armorOptions"
+            :key="armor.id"
+            type="button"
+            :class="['armor-card', { selected: character.equipment.armorId === armor.id, untrained: !armor.trained }]"
+            @click="selectArmor(armor.id)"
+          >
+            <span class="armor-name">{{ armor.nameZh }}</span>
+            <span class="armor-en">{{ armor.name }}</span>
+            <span class="armor-ac">AC {{ armor.acValue }}</span>
+            <span class="armor-meta">{{ armorFormulaText(armor) }}</span>
+            <span class="armor-tags">
+              <span>{{ armor.category }}</span>
+              <span v-if="armor.stealthDisadvantage">隐匿劣势</span>
+              <span v-if="armor.strengthRequired">力量 {{ armor.strengthRequired }}</span>
+              <span v-if="!armor.trained">未受训</span>
+            </span>
+          </button>
+        </div>
+      </section>
+
       <section class="equipment-panel">
         <div class="equipment-kicker">职业起始装备</div>
         <h2>{{ selectedClass?.name ?? '未选择职业' }}</h2>
@@ -42,16 +170,6 @@ const selectedBackground = computed(() =>
         <h2>{{ selectedBackground?.name ?? '未选择背景' }}</h2>
         <p>{{ selectedBackground?.equipment?.a || '方案 A 待补充' }}</p>
         <p>{{ selectedBackground?.equipment?.b || '方案 B 待补充' }}</p>
-      </section>
-
-      <section class="equipment-panel equipment-panel-summary">
-        <div class="equipment-kicker">角色草稿</div>
-        <h2>{{ character.name || '未命名角色' }}</h2>
-        <div class="equipment-summary-grid">
-          <span>等级</span><strong>Lv.{{ character.level }}</strong>
-          <span>属性方式</span><strong>{{ character.abilities.method || '未选择' }}</strong>
-          <span>最大生命值</span><strong>{{ character.hp.max || '未计算' }}</strong>
-        </div>
       </section>
     </main>
 
@@ -103,7 +221,7 @@ const selectedBackground = computed(() =>
 }
 
 .equipment-sub {
-  max-width: 620px;
+  max-width: 660px;
   margin: 8px auto 0;
   color: var(--text-muted);
   font-size: 14px;
@@ -111,7 +229,7 @@ const selectedBackground = computed(() =>
 }
 
 .equipment-layout {
-  width: min(1080px, calc(100% - 32px));
+  width: min(1120px, calc(100% - 32px));
   margin: 24px auto 0;
   display: grid;
   gap: 14px;
@@ -122,6 +240,11 @@ const selectedBackground = computed(() =>
   background: rgba(19, 16, 42, 0.76);
   padding: 18px;
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+}
+
+.equipment-panel-wide,
+.equipment-panel-summary {
+  grid-column: 1 / -1;
 }
 
 .equipment-kicker {
@@ -147,6 +270,34 @@ const selectedBackground = computed(() =>
   margin-top: 10px;
 }
 
+.equipment-ac-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.equipment-ac-row p {
+  border: 0;
+  padding: 0;
+}
+
+.shield-toggle {
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid rgba(201, 168, 76, 0.35);
+  background: rgba(201, 168, 76, 0.08);
+  color: var(--gold-light);
+  font-family: var(--font-title);
+  cursor: pointer;
+}
+
+.shield-toggle.active {
+  background: linear-gradient(135deg, var(--gold), var(--gold-light));
+  color: #160E06;
+}
+
 .equipment-summary-grid {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -159,6 +310,81 @@ const selectedBackground = computed(() =>
   color: var(--text);
   font-family: var(--font-title);
   font-weight: 500;
+}
+
+.equipment-warning {
+  margin-top: 14px;
+  color: #E9C46A !important;
+  background: rgba(233, 196, 106, 0.08);
+  border: 1px solid rgba(233, 196, 106, 0.22) !important;
+  padding: 10px 12px !important;
+}
+
+.armor-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.armor-card {
+  min-height: 118px;
+  text-align: left;
+  border: 1px solid var(--border-dark);
+  background: rgba(8, 7, 22, 0.38);
+  padding: 14px;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+}
+
+.armor-card:active {
+  transform: scale(0.99);
+}
+
+.armor-card.selected {
+  border-color: var(--gold);
+  background: rgba(201, 168, 76, 0.12);
+}
+
+.armor-card.untrained:not(.selected) {
+  opacity: 0.72;
+}
+
+.armor-name,
+.armor-ac {
+  display: block;
+  font-family: var(--font-title);
+}
+
+.armor-name {
+  font-size: 16px;
+  color: var(--gold-light);
+}
+
+.armor-en,
+.armor-meta {
+  display: block;
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.armor-ac {
+  font-size: 20px;
+  margin-top: 10px;
+}
+
+.armor-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.armor-tags span {
+  border: 1px solid rgba(201, 168, 76, 0.22);
+  color: var(--gold);
+  font-size: 11px;
+  padding: 2px 6px;
 }
 
 .equipment-finish-bar {
@@ -186,13 +412,19 @@ const selectedBackground = computed(() =>
   transform: scale(0.97);
 }
 
-@media (min-width: 820px) {
+@media (min-width: 720px) {
+  .armor-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
   .equipment-layout {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .equipment-panel-summary {
-    grid-column: 1 / -1;
+  .armor-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 </style>
