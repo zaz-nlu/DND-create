@@ -1,0 +1,294 @@
+/* ── 场景容器 ── */
+.scroll-scene {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  background:
+    radial-gradient(ellipse at 30% 60%, rgba(100, 40, 140, 0.18) 0%, transparent 55%),
+    radial-gradient(ellipse at 75% 30%, rgba(80, 60, 160, 0.12) 0%, transparent 50%),
+    linear-gradient(175deg, #1A1042 0%, #0C0A17 100%);
+  padding: 40px 20px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── 漂浮符文装饰 ── */
+.rune {
+  position: absolute;
+  font-size: 18px;
+  color: rgba(201, 168, 76, 0.12);
+  animation: floatRune 9s ease-in-out infinite;
+  pointer-events: none;
+  user-select: none;
+}
+
+.rune-1 { top: 13%; left: 7%;   animation-delay: 0s;    animation-duration: 9s; }
+.rune-2 { top: 22%; right: 9%;  animation-delay: 1.5s;  animation-duration: 7.5s; }
+.rune-3 { top: 52%; left: 5%;   animation-delay: 3.2s;  animation-duration: 10s; }
+.rune-4 { top: 68%; right: 7%;  animation-delay: 2s;    animation-duration: 8.5s; }
+.rune-5 { top: 38%; left: 11%;  animation-delay: 4.5s;  animation-duration: 11s;  font-size: 14px; }
+.rune-6 { top: 80%; right: 14%; animation-delay: 0.8s;  animation-duration: 9.5s; font-size: 14px; }
+
+@keyframes floatRune {
+  0%, 100% { transform: translateY(0)    rotate(0deg);  opacity: 0.12; }
+  33%       { transform: translateY(-18px) rotate(8deg);  opacity: 0.28; }
+  66%       { transform: translateY(-8px)  rotate(-5deg); opacity: 0.18; }
+}
+
+/* ── 顶部标签文字 ── */
+.scroll-scene-label {
+  font-family: var(--font-deco);
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  margin-bottom: 36px;
+  opacity: 0;
+  animation: fadeInDown 0.8s ease 0.3s forwards;
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 卷轴容器 ── */
+.cover-wrap {
+  cursor: pointer;
+  width: min(320px, 88vw);
+  display: flex;
+  flex-direction: column;
+  filter: drop-shadow(0 20px 60px rgba(0, 0, 0, 0.7));
+  opacity: 0;
+  transform-origin: center top;
+  animation:
+    coverUnfurl 0.85s cubic-bezier(0.34, 1.35, 0.64, 1) 0.6s forwards,
+    coverFloat  4.5s ease-in-out 2s infinite;
+  transition: filter 0.3s ease;
+}
+
+.cover-wrap:hover {
+  filter:
+    drop-shadow(0 20px 80px rgba(201, 168, 76, 0.22))
+    drop-shadow(0 0 40px rgba(201, 168, 76, 0.08));
+}
+
+/* 卷起动画（点击时） */
+.cover-wrap.furling {
+  animation: coverFurl 0.65s cubic-bezier(0.4, 0, 0.8, 0.2) forwards !important;
+}
+
+@keyframes coverUnfurl {
+  from { opacity: 0; transform: scaleY(0.08); }
+  to   { opacity: 1; transform: scaleY(1); }
+}
+
+@keyframes coverFloat {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-8px); }
+}
+
+@keyframes coverFurl {
+  to { opacity: 0; transform: scaleY(0.04) translateY(-20px); }
+}
+
+/* ── 轴杆 ── */
+.cover-rod {
+  height: 24px;
+  flex-shrink: 0;
+  background: linear-gradient(
+    to bottom,
+    #A0682A 0%,
+    #6B3E12 30%,
+    #8B5222 60%,
+    #A0682A 100%
+  );
+  border-radius: 3px;
+  position: relative;
+  box-shadow:
+    0 3px 10px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* 轴端金头 */
+.cover-rod::before,
+.cover-rod::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #F2DC98, #C9A84C 50%, #8B6914);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  z-index: 1;
+}
+.cover-rod::before { left:  -7px; }
+.cover-rod::after  { right: -7px; }
+
+/* ── 羊皮纸纸体 ── */
+.cover-parchment {
+  position: relative;
+  overflow: hidden;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 28px,
+      rgba(160, 110, 40, 0.04) 28px,
+      rgba(160, 110, 40, 0.04) 29px
+    ),
+    linear-gradient(to bottom, #F5EDD8 0%, #EDE0C4 15%, #EAD9B8 50%, #EDE0C4 85%, #F5EDD8 100%);
+}
+
+/* 两侧立体阴影 */
+.cover-parchment::before,
+.cover-parchment::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 20px;
+  pointer-events: none;
+  z-index: 1;
+}
+.cover-parchment::before {
+  left: 0;
+  background: linear-gradient(to right, rgba(100, 60, 10, 0.2), transparent);
+}
+.cover-parchment::after {
+  right: 0;
+  background: linear-gradient(to left, rgba(100, 60, 10, 0.2), transparent);
+}
+
+/* ── 正文内容 ── */
+.cover-content {
+  padding: 28px 32px 22px;
+  text-align: center;
+  color: #2A1204;
+  position: relative;
+  z-index: 2;
+}
+
+.cover-ornament-top {
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  color: rgba(100, 60, 10, 0.38);
+  margin-bottom: 20px;
+}
+
+/* 徽章 SVG */
+.cover-emblem {
+  width: 84px;
+  height: 84px;
+  margin: 0 auto 16px;
+  display: block;
+  filter: drop-shadow(0 2px 6px rgba(100, 60, 10, 0.18));
+}
+
+/* 标题 */
+.cover-title { margin-bottom: 14px; }
+
+.cover-title-main {
+  display: block;
+  font-family: var(--font-deco);
+  font-size: clamp(20px, 5.5vw, 26px);
+  color: #2A1204;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-shadow: 0 1px 3px rgba(100, 60, 10, 0.12);
+}
+
+.cover-title-sub {
+  display: block;
+  font-family: var(--font-title);
+  font-size: 9.5px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(80, 45, 10, 0.5);
+  margin-top: 6px;
+}
+
+/* 分割线 */
+.cover-divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(120, 75, 20, 0.3), transparent);
+  margin: 14px 0;
+}
+
+/* 格言 */
+.cover-lore {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: rgba(58, 30, 8, 0.65);
+  line-height: 1.65;
+  font-style: italic;
+  margin-bottom: 18px;
+}
+
+/* 点击提示胶囊 */
+.cover-hint {
+  display: inline-block;
+  font-family: var(--font-title);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(120, 75, 20, 0.7);
+  padding: 6px 18px;
+  border: 1px solid rgba(120, 75, 20, 0.28);
+  border-radius: 999px;
+  margin-bottom: 16px;
+  animation: hintPulse 2.2s ease-in-out infinite;
+}
+
+@keyframes hintPulse {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1; }
+}
+
+.cover-ornament-bottom {
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  color: rgba(100, 60, 10, 0.32);
+}
+
+/* ── 底部文字提示 ── */
+.scroll-scene-hint {
+  margin-top: 32px;
+  font-family: var(--font-title);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  opacity: 0;
+  animation: fadeInUp 0.8s ease 1.4s forwards;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 桌面端适配 ── */
+@media (min-width: 640px) {
+  .cover-wrap { width: 360px; }
+  .cover-content { padding: 32px 40px 28px; }
+  .cover-emblem { width: 96px; height: 96px; }
+}
+
+/* ── 降低动画偏好 ── */
+@media (prefers-reduced-motion: reduce) {
+  .cover-wrap,
+  .scroll-scene-label,
+  .scroll-scene-hint,
+  .rune,
+  .cover-hint {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}

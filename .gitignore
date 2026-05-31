@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+.vite-dev.*.log
+
+# Editor and local agent state
+.vscode/
+.idea/
+.claude/
+
+# OS files
+.DS_Store
+Thumbs.db
