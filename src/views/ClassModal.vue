@@ -8,8 +8,12 @@ const props = defineProps({
 })
 const emit = defineEmits(['close'])
 
-const openFeatures = ref(new Set())
 const openSubclasses = ref(new Set())
+
+const allFeatures = computed(() => [
+  ...(props.cls?.level1Features || []).map(f => ({ ...f, level: 1 })),
+  ...(props.cls?.notableFeatures || []),
+])
 const subclassSectionRef = ref(null)
 const needsSubclassPrompt = ref(false)
 
@@ -33,14 +37,6 @@ const classRgb = computed(() => {
   const b = parseInt(hex.substring(4, 6), 16)
   return `${r} ${g} ${b}`
 })
-
-function toggleFeature(id) {
-  if (openFeatures.value.has(id)) {
-    openFeatures.value.delete(id)
-  } else {
-    openFeatures.value.add(id)
-  }
-}
 
 function toggleSubclass(id) {
   if (openSubclasses.value.has(id)) {
@@ -184,35 +180,11 @@ function handleOverlayClick(e) {
               </div>
             </div>
 
-            <!-- 1级特性 -->
+            <!-- 职业特性 -->
             <div class="class-section">
-              <div class="class-section-title">1级特性</div>
+              <div class="class-section-title">职业特性</div>
               <div
-                v-for="feat in cls.level1Features"
-                :key="feat.id"
-                class="class-feature"
-              >
-                <div
-                  class="class-feature-header"
-                  @click="toggleFeature(feat.id)"
-                >
-                  <div class="class-feature-name-wrap">
-                    <span class="class-feature-name">{{ feat.name }}</span>
-                    <span class="class-feature-name-en">{{ feat.nameEn }}</span>
-                  </div>
-                  <span :class="['class-feature-chevron', { open: openFeatures.has(feat.id) }]">▼</span>
-                </div>
-                <div :class="['class-feature-body', { open: openFeatures.has(feat.id) }]">
-                  <div class="class-feature-desc">{{ feat.desc }}</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 成长里程碑 -->
-            <div class="class-section">
-              <div class="class-section-title">成长里程碑</div>
-              <div
-                v-for="feat in cls.notableFeatures"
+                v-for="feat in allFeatures"
                 :key="`${feat.level}-${feat.name}`"
                 class="class-milestone"
               >

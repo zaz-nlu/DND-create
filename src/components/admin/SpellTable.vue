@@ -83,28 +83,75 @@ function emit() {
 </script>
 
 <style scoped>
-.spell-table-wrap { display: flex; flex-direction: column; gap: 8px; }
-.table-scroll { overflow-x: auto; }
+.spell-table-wrap { display: flex; flex-direction: column; gap: 10px; }
+
+.table-scroll {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201,168,76,0.15) transparent;
+}
+.table-scroll::-webkit-scrollbar { height: 3px; }
+.table-scroll::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.18); }
+
 .spell-table {
-  border-collapse: collapse; font-size: 0.82rem;
+  border-collapse: collapse;
+  font-size: 0.82rem;
   min-width: 500px;
+  width: 100%;
 }
+
 .spell-table th {
-  padding: 6px 8px; background: rgba(100,80,160,0.25);
-  color: #b0a0d0; font-weight: 600; text-align: center;
-  border: 1px solid rgba(255,255,255,0.08); white-space: nowrap;
+  padding: 7px 8px;
+  background: rgba(201,168,76,0.08);
+  color: var(--gold, #C9A84C);
+  font-family: 'Cinzel', serif;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: center;
+  border: 1px solid rgba(201,168,76,0.1);
+  white-space: nowrap;
 }
+
 .spell-table td {
-  padding: 3px 4px; border: 1px solid rgba(255,255,255,0.06);
+  padding: 3px 4px;
+  border: 1px solid rgba(255,255,255,0.04);
   text-align: center;
 }
-.lv-cell { color: #8870b0; font-weight: 600; padding: 3px 8px; }
-.spell-table input {
-  width: 42px; padding: 3px 4px; text-align: center;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-  color: #ddd; border-radius: 4px; outline: none; font-size: 0.82rem;
+
+.lv-cell {
+  color: rgba(201,168,76,0.55);
+  font-family: 'Cinzel', serif;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
 }
-.spell-table input:focus { border-color: rgba(160,130,230,0.5); background: rgba(255,255,255,0.1); }
-.spell-table tr:hover td { background: rgba(255,255,255,0.02); }
-.table-hint { font-size: 0.78rem; color: #7060a0; margin: 0; }
+
+.spell-table input {
+  width: 42px;
+  padding: 3px 4px;
+  text-align: center;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(201,168,76,0.1);
+  color: #EAD9C1;
+  border-radius: 2px;
+  outline: none;
+  font-size: 0.82rem;
+  font-family: 'Crimson Pro', Georgia, serif;
+  transition: border-color 0.2s;
+}
+.spell-table input:focus {
+  border-color: rgba(201,168,76,0.45);
+  background: rgba(0,0,0,0.5);
+}
+.spell-table tr:hover td { background: rgba(201,168,76,0.02); }
+
+.table-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted, #9A8868);
+  margin: 0;
+  font-style: italic;
+}
 </style>

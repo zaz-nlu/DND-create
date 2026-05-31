@@ -42,30 +42,65 @@ function remove(i) {
 </script>
 
 <style scoped>
-.tag-input { display: flex; flex-direction: column; gap: 6px; }
-.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-input { display: flex; flex-direction: column; gap: 7px; }
+
+.tags { display: flex; flex-wrap: wrap; gap: 5px; }
+
 .tag {
-  display: flex; align-items: center; gap: 4px;
-  padding: 3px 8px; border-radius: 12px;
-  background: rgba(100, 80, 180, 0.3); border: 1px solid rgba(160, 130, 230, 0.4);
-  color: #c8b8f0; font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 2px;
+  background: rgba(201,168,76,0.08);
+  border: 1px solid rgba(201,168,76,0.22);
+  color: #C9A84C;
+  font-size: 0.75rem;
+  font-family: 'Cinzel', serif;
+  letter-spacing: 0.04em;
 }
+
 .tag-remove {
-  background: none; border: none; color: #a090c0;
-  cursor: pointer; font-size: 0.9rem; line-height: 1; padding: 0 2px;
+  background: none;
+  border: none;
+  color: rgba(201,168,76,0.4);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0 2px;
+  transition: color 0.15s;
 }
-.tag-remove:hover { color: #e94560; }
-.add-row { display: flex; gap: 6px; }
+.tag-remove:hover { color: #C07060; }
+
+.add-row { display: flex; gap: 7px; }
+
 .add-row input {
-  flex: 1; padding: 6px 10px; border-radius: 6px;
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
-  color: #ddd; font-size: 0.85rem; outline: none;
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 3px;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(201,168,76,0.14);
+  color: #EAD9C1;
+  font-size: 0.88rem;
+  font-family: 'Crimson Pro', Georgia, serif;
+  outline: none;
+  transition: border-color 0.2s;
 }
-.add-row input:focus { border-color: rgba(160,130,230,0.5); }
+.add-row input:focus { border-color: rgba(201,168,76,0.45); }
+
 .btn-add-tag {
-  padding: 6px 12px; border-radius: 6px;
-  background: rgba(100,80,180,0.3); border: 1px solid rgba(160,130,230,0.4);
-  color: #c8b8f0; cursor: pointer; font-size: 0.9rem;
+  padding: 6px 12px;
+  border-radius: 3px;
+  background: transparent;
+  border: 1px solid rgba(201,168,76,0.24);
+  color: rgba(201,168,76,0.65);
+  cursor: pointer;
+  font-family: 'Cinzel', serif;
+  font-size: 0.82rem;
+  transition: background 0.15s, color 0.15s;
 }
-.btn-add-tag:hover { background: rgba(120,100,200,0.4); }
+.btn-add-tag:hover {
+  background: rgba(201,168,76,0.08);
+  color: #C9A84C;
+}
 </style>

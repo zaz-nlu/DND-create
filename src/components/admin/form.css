@@ -1,144 +1,196 @@
+/* ══ 表单容器 ════════════════════════════════════════════════ */
 .form-wrap {
   display: flex;
   flex-direction: column;
   gap: 0;
   height: 100%;
   overflow-y: auto;
+  background: #0C0A17;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201,168,76,0.15) transparent;
 }
+.form-wrap::-webkit-scrollbar { width: 3px; }
+.form-wrap::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.18); border-radius: 2px; }
 
+/* ══ 顶部操作栏（sticky） ═══════════════════════════════════ */
 .form-actions.top {
   display: flex;
   gap: 8px;
-  padding: 12px 16px;
-  background: #131224;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: 11px 20px;
+  background: linear-gradient(90deg, #13102A 0%, #0F0C22 100%);
+  border-bottom: 1px solid rgba(201,168,76,0.12);
   flex-shrink: 0;
   position: sticky;
   top: 0;
   z-index: 5;
 }
 
+/* ══ 区段 ════════════════════════════════════════════════════ */
 .form-section {
-  padding: 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding: 18px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 
 .form-section h3 {
-  margin: 0 0 14px;
-  font-size: 0.9rem;
-  color: #b0a0d0;
-  letter-spacing: 0.05em;
+  margin: 0 0 16px;
+  font-family: 'Cinzel', 'Noto Serif SC', Georgia, serif;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--gold, #C9A84C);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.form-section h3::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(201,168,76,0.28), transparent);
 }
 
+/* ══ 字段网格 ═══════════════════════════════════════════════ */
 .field-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 14px;
 }
 
 .field-item {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
+.field-item.full { grid-column: 1 / -1; }
 
-.field-item.full {
-  grid-column: 1 / -1;
-}
-
+/* ══ 标签 ════════════════════════════════════════════════════ */
 .field-label {
-  font-size: 0.78rem;
-  color: #9080b0;
-  font-weight: 500;
+  font-family: 'Cinzel', 'Noto Serif SC', Georgia, serif;
+  font-size: 0.65rem;
+  color: var(--text-muted, #9A8868);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 .field-hint {
   font-size: 0.72rem;
-  color: #6050a0;
+  color: rgba(201,168,76,0.32);
   margin-top: 3px;
+  font-style: italic;
 }
 
+/* ══ 输入框 ══════════════════════════════════════════════════ */
 .field-item input,
 .field-item textarea,
 .field-item select {
-  padding: 7px 10px;
-  border-radius: 6px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
-  color: #ddd;
-  font-size: 0.85rem;
+  padding: 8px 12px;
+  border-radius: 3px;
+  background: rgba(0,0,0,0.38);
+  border: 1px solid rgba(201,168,76,0.14);
+  color: var(--text, #EAD9C1);
+  font-size: 0.9rem;
+  font-family: 'Crimson Pro', 'Noto Serif SC', Georgia, serif;
   outline: none;
   resize: vertical;
-  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  line-height: 1.55;
 }
-
 .field-item input:focus,
 .field-item textarea:focus,
 .field-item select:focus {
-  border-color: rgba(160,130,230,0.5);
-  background: rgba(255,255,255,0.09);
+  border-color: rgba(201,168,76,0.5);
+  box-shadow: 0 0 0 3px rgba(201,168,76,0.07);
+  background: rgba(0,0,0,0.52);
 }
-
 .field-item input[disabled] {
-  opacity: 0.5;
+  opacity: 0.38;
   cursor: not-allowed;
 }
 
+/* 自定义 select 箭头 */
+.field-item select {
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23C9A84C' opacity='0.45'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+/* ══ 颜色选择器行 ════════════════════════════════════════════ */
 .color-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-
 .color-row input[type="color"] {
   width: 36px;
   height: 34px;
   padding: 2px;
-  border-radius: 6px;
+  border-radius: 3px;
   cursor: pointer;
   flex-shrink: 0;
+  border: 1px solid rgba(201,168,76,0.2);
+  background: rgba(0,0,0,0.38);
 }
 
-.ability-row {
-  display: flex;
-  gap: 8px;
-}
+.ability-row { display: flex; gap: 8px; }
+.ability-row select { flex: 1; }
 
-.ability-row select {
-  flex: 1;
-}
-
+/* ══ 表单按钮 ════════════════════════════════════════════════ */
 .btn-save {
-  padding: 8px 20px;
-  border-radius: 6px;
-  background: #4caf50;
+  padding: 8px 22px;
+  border-radius: 3px;
+  background: linear-gradient(135deg, #C9A84C, #E5C97A);
   border: none;
-  color: #fff;
-  font-size: 0.9rem;
+  color: #1A0F05;
+  font-size: 0.72rem;
+  font-family: 'Cinzel', 'Noto Serif SC', Georgia, serif;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
   cursor: pointer;
-  font-weight: 600;
+  transition: box-shadow 0.2s, opacity 0.2s;
 }
-
-.btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-save:hover { box-shadow: 0 0 18px rgba(201,168,76,0.45); }
+.btn-save:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 
 .btn-revert {
   padding: 8px 16px;
-  border-radius: 6px;
-  background: rgba(233,69,96,0.1);
-  border: 1px solid rgba(233,69,96,0.4);
-  color: #e94560;
-  font-size: 0.85rem;
+  border-radius: 3px;
+  background: transparent;
+  border: 1px solid rgba(140,50,30,0.45);
+  color: #C07060;
+  font-size: 0.72rem;
+  font-family: 'Cinzel', 'Noto Serif SC', Georgia, serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.btn-revert:hover {
+  background: rgba(140,50,30,0.14);
+  border-color: rgba(140,50,30,0.7);
 }
 
 .btn-cancel {
   padding: 8px 16px;
-  border-radius: 6px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.15);
-  color: #aaa;
-  font-size: 0.85rem;
+  border-radius: 3px;
+  background: transparent;
+  border: 1px solid rgba(201,168,76,0.14);
+  color: var(--text-muted, #9A8868);
+  font-size: 0.72rem;
+  font-family: 'Cinzel', 'Noto Serif SC', Georgia, serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.btn-cancel:hover {
+  border-color: rgba(201,168,76,0.32);
+  color: var(--text, #EAD9C1);
 }
 
 @media (max-width: 600px) {

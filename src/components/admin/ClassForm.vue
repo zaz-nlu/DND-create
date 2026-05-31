@@ -135,18 +135,12 @@
       </div>
     </section>
 
-    <!-- 1级特性 -->
+    <!-- 全部职业特性 -->
     <section class="form-section">
-      <h3>⭐ 1 级特性</h3>
-      <FeatureListEditor v-model="f.level1Features" />
-    </section>
-
-    <!-- 2-20级职业特性 -->
-    <section class="form-section">
-      <h3>📋 2–20 级职业特性
-        <span class="section-hint">（疾风连击、额外攻击、震慑拳等都在这里）</span>
+      <h3>📋 职业特性
+        <span class="section-hint">（所有等级，1 级特性也在这里填写）</span>
       </h3>
-      <FeatureListEditor v-model="f.notableFeatures" :with-level="true" />
+      <FeatureListEditor v-model="f.allFeatures" :with-level="true" />
     </section>
 
     <!-- 法术进阶表 -->
@@ -250,7 +244,10 @@ const f = reactive({
   weapons: [], armor: [], tools: [],
   skillChoices: { count: 2, options: [] },
   equipment: { a: '', b: '50 GP' },
-  level1Features: [],
+  allFeatures: [
+    ...(raw.level1Features || []).map(feat => ({ level: 1, ...feat })),
+    ...(raw.notableFeatures || []),
+  ],
   spellcastingProgression: null,
   subclasses: [],
   ...raw,
@@ -264,8 +261,10 @@ if (!f.saves || f.saves.length < 2) f.saves = ['力量', '体质']
 if (!f.skillChoices) f.skillChoices = { count: 2, options: [] }
 if (!f.skillChoices.options) f.skillChoices.options = []
 if (!f.equipment) f.equipment = { a: '', b: '50 GP' }
-if (!f.level1Features  || !f.level1Features.length)  f.level1Features  = JSON.parse(JSON.stringify(props.data.level1Features  || []))
-if (!f.notableFeatures || !f.notableFeatures.length) f.notableFeatures = JSON.parse(JSON.stringify(props.data.notableFeatures || []))
+if (!f.allFeatures?.length) f.allFeatures = [
+  ...(props.data.level1Features || []).map(feat => ({ level: 1, ...feat })),
+  ...(props.data.notableFeatures || []),
+]
 if (!f.subclasses      || !f.subclasses.length)      f.subclasses      = JSON.parse(JSON.stringify(props.data.subclasses      || []))
 if (f.spellcastingAbility === null || f.spellcastingAbility === undefined) f.spellcastingAbility = ''
 
@@ -335,59 +334,161 @@ async function uploadImg(e) {
   }
 }
 
-function save() { emit('save', JSON.parse(JSON.stringify(f))) }
+function save() {
+  const data = JSON.parse(JSON.stringify(f))
+  data.level1Features = (data.allFeatures || [])
+    .filter(feat => (feat.level ?? 1) === 1)
+    .map(({ level, ...rest }) => rest)
+  data.notableFeatures = (data.allFeatures || [])
+    .filter(feat => (feat.level ?? 1) !== 1)
+  delete data.allFeatures
+  emit('save', data)
+}
 </script>
 
 <style scoped src="./form.css" />
 <style scoped>
 .section-hint {
-  font-size: 0.78rem;
-  color: #7060a0;
+  font-size: 0.62rem;
+  color: rgba(201,168,76,0.38);
   font-weight: normal;
   margin-left: 8px;
+  font-style: italic;
+  letter-spacing: 0.05em;
+  text-transform: none;
 }
 
 .toggle-label {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 0.82rem; color: #9080b0; font-weight: normal;
-  cursor: pointer; margin-left: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  color: var(--text-muted, #9A8868);
+  font-weight: normal;
+  cursor: pointer;
+  margin-left: 12px;
+  letter-spacing: 0.08em;
+  font-family: var(--font-title, 'Cinzel', serif);
 }
-.no-spell-hint { font-size: 0.82rem; color: #6050a0; margin: 4px 0; }
+.no-spell-hint {
+  font-size: 0.82rem;
+  color: var(--text-muted, #9A8868);
+  margin: 4px 0;
+  font-style: italic;
+}
 
-.subclass-list { display: flex; flex-direction: column; gap: 12px; }
+/* ── 子职业卡片 ── */
+.subclass-list { display: flex; flex-direction: column; gap: 14px; }
+
 .subclass-card {
-  border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden;
+  border: 1px solid rgba(201,168,76,0.16);
+  border-radius: 3px;
+  overflow: hidden;
+  background: rgba(0,0,0,0.18);
 }
-.subclass-header {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 10px 14px; background: rgba(80,60,140,0.2);
-  border-bottom: 1px solid rgba(255,255,255,0.07);
-}
-.subclass-num { font-size: 0.85rem; color: #b0a0d0; font-weight: 600; }
-.btn-del-sub {
-  padding: 4px 12px; border-radius: 4px; font-size: 0.78rem;
-  background: rgba(233,69,96,0.15); border: 1px solid rgba(233,69,96,0.3);
-  color: #e94560; cursor: pointer;
-}
-.subclass-body { padding: 14px; display: flex; flex-direction: column; gap: 14px; }
-.subclass-features { display: flex; flex-direction: column; gap: 8px; }
-.sub-feat-title { font-size: 0.8rem; color: #9080b0; margin: 0; font-weight: 600; }
-.btn-add-sub {
-  padding: 10px 0; border-radius: 8px; width: 100%;
-  background: rgba(80,60,140,0.1); border: 1px dashed rgba(160,130,230,0.3);
-  color: #a090c0; cursor: pointer; font-size: 0.85rem;
-}
-.btn-add-sub:hover { background: rgba(80,60,140,0.2); color: #c8b8f0; }
 
-.img-upload-area { display: flex; gap: 16px; align-items: flex-start; }
-.img-preview { width: 80px; height: 80px; border-radius: 8px; object-fit: cover; border: 1px solid rgba(255,255,255,0.15); flex-shrink: 0; }
-.upload-right { display: flex; flex-direction: column; gap: 6px; flex: 1; }
-.btn-upload-img {
-  display: inline-block; padding: 7px 14px; border-radius: 6px;
-  background: rgba(60,100,180,0.25); border: 1px solid rgba(100,150,230,0.4);
-  color: #90b8f0; cursor: pointer; font-size: 0.85rem; width: fit-content;
+.subclass-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 16px;
+  background: linear-gradient(90deg, rgba(201,168,76,0.07) 0%, transparent 100%);
+  border-bottom: 1px solid rgba(201,168,76,0.1);
 }
-.upload-status { font-size: 0.8rem; color: #a0a0a0; }
-.upload-err    { font-size: 0.8rem; color: #e94560; }
-.upload-hint   { font-size: 0.78rem; color: #6050a0; margin: 0; }
+
+.subclass-num {
+  font-size: 0.68rem;
+  font-family: var(--font-title, 'Cinzel', serif);
+  color: var(--gold, #C9A84C);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.btn-del-sub {
+  padding: 4px 11px;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  font-family: var(--font-title, 'Cinzel', serif);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid rgba(140,50,30,0.38);
+  color: #B06850;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.btn-del-sub:hover { background: rgba(140,50,30,0.14); color: #D09070; }
+
+.subclass-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: none;
+  overflow: visible;
+}
+
+.subclass-features { display: flex; flex-direction: column; gap: 8px; }
+
+.sub-feat-title {
+  font-size: 0.62rem;
+  font-family: var(--font-title, 'Cinzel', serif);
+  color: rgba(201,168,76,0.45);
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.btn-add-sub {
+  padding: 10px 0;
+  border-radius: 3px;
+  width: 100%;
+  background: transparent;
+  border: 1px dashed rgba(201,168,76,0.18);
+  color: rgba(201,168,76,0.38);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-family: var(--font-title, 'Cinzel', serif);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.btn-add-sub:hover {
+  background: rgba(201,168,76,0.05);
+  color: var(--gold, #C9A84C);
+  border-color: rgba(201,168,76,0.38);
+}
+
+/* ── 图片上传 ── */
+.img-upload-area { display: flex; gap: 16px; align-items: flex-start; }
+.img-preview {
+  width: 80px;
+  height: 80px;
+  border-radius: 3px;
+  object-fit: cover;
+  border: 1px solid rgba(201,168,76,0.2);
+  flex-shrink: 0;
+}
+.upload-right { display: flex; flex-direction: column; gap: 7px; flex: 1; }
+.btn-upload-img {
+  display: inline-block;
+  padding: 7px 14px;
+  border-radius: 3px;
+  background: transparent;
+  border: 1px solid rgba(201,168,76,0.28);
+  color: var(--gold, #C9A84C);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-family: var(--font-title, 'Cinzel', serif);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  width: fit-content;
+  transition: background 0.2s;
+}
+.btn-upload-img:hover { background: rgba(201,168,76,0.08); }
+.upload-status { font-size: 0.78rem; color: var(--text-muted, #9A8868); font-style: italic; }
+.upload-err    { font-size: 0.78rem; color: #C07060; font-style: italic; }
+.upload-hint   { font-size: 0.72rem; color: var(--text-muted, #9A8868); margin: 0; }
 </style>
