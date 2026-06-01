@@ -100,6 +100,49 @@
       </div>
     </section>
 
+    <!-- 无甲 AC 公式 -->
+    <section class="form-section">
+      <h3>🛡 无甲 AC 公式
+        <span class="section-hint">不填则默认 10 + 敏捷调整值（普通职业无需填写）</span>
+      </h3>
+      <div class="field-grid">
+        <field label="启用自定义无甲公式" full>
+          <label class="toggle-label" style="font-size:0.85rem;color:#aaa;cursor:pointer;display:flex;align-items:center;gap:8px;">
+            <input type="checkbox" :checked="!!f.acFormula" @change="toggleAcFormula" style="width:16px;height:16px;" />
+            <span>该职业在不穿护甲时使用自定义 AC 公式（如野蛮人、武僧）</span>
+          </label>
+        </field>
+        <template v-if="f.acFormula">
+          <field label="基础 AC 值">
+            <input type="number" v-model.number="f.acFormula.base" min="0" max="30" placeholder="10" />
+          </field>
+          <field label="叠加属性调整值" full>
+            <div class="ability-check-row">
+              <label v-for="ab in ABILITIES" :key="ab" class="ability-check">
+                <input
+                  type="checkbox"
+                  :checked="f.acFormula.abilities.includes(ab)"
+                  @change="toggleAcAbility(ab)"
+                />
+                {{ ab }}
+              </label>
+            </div>
+            <span class="field-hint">
+              例：野蛮人勾选"敏捷 + 体质"，武僧勾选"敏捷 + 感知"，程序员只勾"体质"
+            </span>
+          </field>
+          <field label="预览" full>
+            <span class="ac-preview">
+              无甲 AC = {{ f.acFormula.base }}
+              <template v-if="f.acFormula.abilities.length">
+                + {{ f.acFormula.abilities.join(' + ') }}调整值
+              </template>
+            </span>
+          </field>
+        </template>
+      </div>
+    </section>
+
     <!-- 熟练项 -->
     <section class="form-section">
       <h3>🛡 熟练项</h3>
@@ -267,6 +310,8 @@ if (!f.allFeatures?.length) f.allFeatures = [
 ]
 if (!f.subclasses      || !f.subclasses.length)      f.subclasses      = JSON.parse(JSON.stringify(props.data.subclasses      || []))
 if (f.spellcastingAbility === null || f.spellcastingAbility === undefined) f.spellcastingAbility = ''
+// acFormula: null 表示不使用自定义公式（用默认 10+敏捷）
+if (f.acFormula && !f.acFormula.abilities) f.acFormula.abilities = []
 
 const hasSpellcasting = ref(!!f.spellcastingProgression)
 
@@ -278,6 +323,17 @@ function toggleSpellcasting() {
   } else if (!hasSpellcasting.value) {
     f.spellcastingProgression = null
   }
+}
+
+function toggleAcFormula(e) {
+  f.acFormula = e.target.checked ? { base: 10, abilities: ['敏捷'] } : null
+}
+
+function toggleAcAbility(ab) {
+  if (!f.acFormula) return
+  const idx = f.acFormula.abilities.indexOf(ab)
+  if (idx >= 0) f.acFormula.abilities.splice(idx, 1)
+  else f.acFormula.abilities.push(ab)
 }
 
 function addSub() {
@@ -375,6 +431,28 @@ function save() {
   color: var(--text-muted, #9A8868);
   margin: 4px 0;
   font-style: italic;
+}
+
+/* ── 无甲 AC 公式 ── */
+.ability-check-row {
+  display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 4px;
+}
+.ability-check {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.85rem; color: #c9a84c; cursor: pointer;
+}
+.ability-check input { width: 14px; height: 14px; cursor: pointer; accent-color: #c9a84c; }
+
+.ac-preview {
+  display: inline-block;
+  padding: 6px 12px;
+  border: 1px solid rgba(201,168,76,0.25);
+  border-radius: 3px;
+  background: rgba(201,168,76,0.07);
+  color: var(--gold, #C9A84C);
+  font-family: var(--font-title, 'Cinzel', serif);
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
 }
 
 /* ── 子职业卡片 ── */

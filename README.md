@@ -1,227 +1,358 @@
 # DND-create
 
-# RPG 技能选择器
+一个面向 D&D 2024 规则的中文角色创建器。
 
-一个面向 D&D 2024 规则的中文角色创建器原型。项目用 Vue 3 + Vite 构建，目标是把建卡流程拆成清晰的步骤，让玩家可以按“等级、种族、职业、背景、专长、法术、属性、生命值、装备、角色卡”的顺序快速整理角色。
+项目已经从单页原型扩展为可用的车卡工具：玩家可以依次完成种族、职业、背景、专长、法术、属性、装备和生命值配置，查看自动汇总的角色卡，并将 HTML 角色卡打印或另存为 PDF。项目还包含一个轻量后端和管理后台，可在不修改前端源码的情况下覆盖种族、职业与背景数据。
 
-> 当前项目仍在开发中。法术、职业、专长、属性与角色草稿流程已经可用；装备选择、完整 AC 自动计算、导入模板文档仍在继续完善。
+> 本项目不是官方规则产品。规则文本、内容使用范围和最终裁定请以你使用的规则书与 DM 决定为准。
 
-线上地址:http://47.120.19.14:8088
+演示地址（如仍在运行）：[http://47.120.19.14:8088](http://47.120.19.14:8088)
 
-## 主要功能
+## 已实现功能
 
-- 封面 + 多步建卡流程：基础设置、基础属性、种族、职业、背景、专长、法术、属性总览、生命值、装备、角色卡。
-- 中文化 D&D 2024 数据：内置种族、职业、背景、起源专长、通用专长、战斗风格、邪术祈唤和法术资料。
-- 职业联动：根据当前职业和等级展示可用子职、职业选项、技能熟练、专长槽位和法术选择。
-- 法术选择器：支持中文名、英文名、学派和特殊标签搜索；支持环阶筛选；会根据职业法表、等级和施法进度限制可选法术。
-- 法术详情：可查看施法时间、距离、成分、持续时间和法术描述。
-- 施法规则页：内置准备法术规则、魔法学派说明和基础施法规则摘要。
-- 属性汇总：整合基础属性、背景属性加值和专长属性加值。
-- 生命值计算：支持标准生命值和掷骰生命值流程。
-- 本地草稿：角色数据保存到浏览器 localStorage，刷新后仍可继续编辑。
-- 职业 JSON 导入：可以导入自定义职业规则 JSON，用于扩展开源数据。
+### 玩家端
 
-## 当前状态
+- 多角色草稿：创建、切换、重命名与删除角色，草稿自动保存在浏览器本地。
+- 角色创建流程：基础信息、种族、职业、背景、专长、法术、属性、装备、生命值与最终角色卡。
+- 规则联动：自动汇总种族、职业、背景和专长提供的属性、技能、护甲训练与其他选择。
+- 职业进阶选择：子职业、职业技能、通用专长和部分职业特性会按等级解锁并提示补全。
+- 法术系统：支持职业法术列表、种族法术、戏法、准备法术、法术详情和施法规则查阅。
+- 装备选择：支持护甲、盾牌和武器选择；自动计算 AC，并提示护甲训练、盾牌训练和力量不足带来的影响。
+- 生命值计算：根据职业生命骰、等级和体质调整值计算生命值。
+- HTML 角色卡：生成适合打印的双页角色卡，可通过浏览器打印功能另存为 PDF。
+- 自定义职业导入：可以在职业选择页导入本地 JSON 职业数据。
 
-已完成或基本可用：
+### 管理后台
 
-- 种族选择与种族特性展示
-- 职业选择、子职展示、职业 JSON 导入
-- 背景选择与背景属性加值
-- 专长选择、战斗风格选择、技能熟练步骤
-- 0-9 环法术列表与大量法术详情
-- 法术搜索、环阶 tab、职业法表联动
-- 属性总览、生命值设置、角色卡展示
+- 管理种族、职业和背景。
+- 新增自定义数据，或覆盖内置数据。
+- 编辑和删除已有覆盖项。
+- 将被覆盖的内置数据恢复为默认版本。
+- 为种族和职业上传图片。
+- 使用 SQLite 保存管理端数据。
 
-待完善：
-
-- 装备页目前主要展示职业和背景起始装备，还不是完整装备选择器。
-- AC 目前只在角色卡中显示基础无甲算法，完整的护甲、盾牌、职业无甲防御、法术和战斗风格联动尚未接入。
-- 自定义 JSON 导入目前以职业为主，法术、装备、怪物等模块可以后续继续扩展。
-- 法术详情数据量较大，后续可以考虑拆分文件或按需加载。
+管理后台地址：`/admin`
 
 ## 技术栈
 
-- Vue 3
-- Vue Router
-- Vite
-- 原生 CSS
-- localStorage 本地持久化
-
-## 快速开始
-
-安装依赖：
-
-```bash
-npm install
-```
-
-启动开发服务器：
-
-```bash
-npm run dev
-```
-
-默认开发地址：
-
-```text
-http://localhost:5200
-```
-
-打包生产版本：
-
-```bash
-npm run build
-```
-
-本地预览生产包：
-
-```bash
-npm run preview
-```
+| 模块 | 技术 |
+| --- | --- |
+| 玩家端与管理端 | Vue 3、Vue Router、Vite |
+| 规则数据 | JavaScript 静态模块 |
+| 后端 API | Node.js、Express |
+| 数据库 | SQLite、better-sqlite3 |
+| 身份验证 | JWT、bcrypt |
+| 文件上传 | Multer |
+| 打印导出 | HTML 打印样式、浏览器打印 |
 
 ## 项目结构
 
 ```text
-src/
-  assets/              图片资源
-  components/          通用组件
-  data/                规则数据
-    backgrounds.js     背景数据
-    classes.js         职业、子职、职业进度
-    importedRules.js   JSON 导入与校验
-    races.js           种族数据
-    spells.js          法术列表与法术详情
-    spellRules.js      施法规则摘要
-  router/              路由
-  store/               角色草稿状态
-  styles/              页面样式
-  utils/               属性、生命值、进度等工具函数
-  views/               页面视图
+DND-create/
+├─ public/                 # 静态资源与导入说明
+├─ server/
+│  ├─ index.js             # Express API、SQLite 初始化、上传服务
+│  └─ package.json         # 后端依赖与启动脚本
+├─ src/
+│  ├─ api/                 # 前端 API 请求与覆盖数据加载
+│  ├─ components/          # 通用组件
+│  ├─ data/                # 内置规则数据
+│  ├─ router/              # 页面路由
+│  ├─ utils/               # 属性、HP、AC、进阶、PDF 等计算逻辑
+│  └─ views/               # 玩家端、角色卡、打印页与管理后台
+├─ test/                   # 轻量规则测试
+├─ package.json            # 前端依赖与启动脚本
+└─ vite.config.js          # Vite 配置与开发代理
 ```
 
-## 建卡流程
+## 快速开始
 
-当前路由流程如下：
+### 仅运行玩家端
+
+只需要体验内置规则数据时，可以只启动前端：
+
+```bash
+npm install
+npm run dev
+```
+
+浏览器打开 [http://localhost:5200](http://localhost:5200)。
+
+后端未启动时，玩家端会继续使用 `src/data/` 中的内置数据。
+
+### 运行完整版本
+
+完整版本包含玩家端、管理后台和 SQLite 数据覆盖层。请分别启动后端和前端。
+
+终端 1：
+
+```powershell
+cd server
+npm install
+$env:JWT_SECRET='replace-with-a-long-random-secret'
+npm run dev
+```
+
+终端 2：
+
+```powershell
+npm install
+$env:VITE_API_URL='http://localhost:3001'
+npm run dev
+```
+
+默认地址：
+
+| 服务 | 地址 |
+| --- | --- |
+| 玩家端 | [http://localhost:5200](http://localhost:5200) |
+| 管理后台 | [http://localhost:5200/admin](http://localhost:5200/admin) |
+| API 健康检查 | [http://localhost:3001/api/health](http://localhost:3001/api/health) |
+
+首次启动后端时会创建默认管理员：
 
 ```text
-/               封面
-/setup          基础设置
-/ability-base   基础属性
-/race           种族
-/class          职业
-/background     背景
-/feats          专长与技能
-/spells         法术
-/abilities      属性总览
-/hp             生命值
-/equipment      装备
-/sheet          角色卡
+用户名：admin
+密码：admin123
 ```
 
-## 职业 JSON 导入
+登录管理后台后，请立即修改密码。生产环境也必须显式设置 `JWT_SECRET`。
 
-职业导入入口在职业选择页。导入文件需要是一个职业对象，或包含 `class` 字段的对象。
+在 macOS 或 Linux 中，可以使用以下写法设置环境变量：
+
+```bash
+JWT_SECRET='replace-with-a-long-random-secret' npm run dev
+VITE_API_URL='http://localhost:3001' npm run dev
+```
+
+## 常用命令
+
+### 前端
+
+```bash
+npm run dev       # 启动 Vite 开发服务器
+npm run build     # 构建生产版本
+npm run preview   # 本地预览生产构建
+```
+
+### 后端
+
+```bash
+cd server
+npm run dev       # 使用 node --watch 启动开发服务器
+npm start         # 启动后端服务
+```
+
+### 规则测试
+
+```bash
+node test/progression.test.mjs
+node test/raceSpells.test.mjs
+node test/skillProficiencies.test.mjs
+```
+
+## 角色创建流程
+
+玩家端主要页面如下：
+
+| 路径 | 内容 |
+| --- | --- |
+| `/` | 封面 |
+| `/setup` | 角色草稿与基础信息 |
+| `/ability-base` | 基础属性方案 |
+| `/race` | 种族选择 |
+| `/class` | 职业与等级选择 |
+| `/background` | 背景选择 |
+| `/feats` | 专长选择 |
+| `/spells` | 法术选择与详情 |
+| `/abilities` | 最终属性汇总 |
+| `/equipment` | 护甲、盾牌与武器 |
+| `/hp` | 生命值设置 |
+| `/sheet` | 最终角色卡 |
+| `/print` | HTML 打印角色卡 |
+| `/admin` | 数据管理后台 |
+
+角色草稿会自动写入浏览器 `localStorage`。清除浏览器站点数据会同时移除本地草稿。
+
+## 数据设计
+
+项目采用“内置数据 + 后端覆盖”的结构：
+
+```text
+src/data/ 内置规则数据
+        │
+        ├── 后端不可用：直接使用内置数据
+        │
+        └── 后端可用：加载 SQLite 中的覆盖项与新增项
+```
+
+这样做有两个好处：
+
+1. 前端在没有后端时仍可独立使用。
+2. DM 或维护者可以通过后台调整常用数据，而不必重新打包前端。
+
+目前管理后台支持的类型：
+
+- `races`：种族
+- `classes`：职业
+- `backgrounds`：背景
+
+法术、专长、装备和工具等内容目前仍以 `src/data/` 中的静态模块为准。
+
+主要规则数据文件：
+
+| 文件 | 内容 |
+| --- | --- |
+| `src/data/races.js` | 种族 |
+| `src/data/classes.js` | 职业、子职业与职业进阶 |
+| `src/data/backgrounds.js` | 背景 |
+| `src/data/originFeats.js` | 起源专长 |
+| `src/data/generalFeats.js` | 通用专长 |
+| `src/data/fightingStyleFeats.js` | 战斗风格专长 |
+| `src/data/eldritchInvocations.js` | 魔能祈唤 |
+| `src/data/spells.js` | 法术 |
+| `src/data/spellRules.js` | 施法规则 |
+| `src/data/armor.js` | 护甲与盾牌 |
+| `src/data/weapons.js` | 武器与精通词条 |
+| `src/data/tools.js` | 工具 |
+| `src/data/adventuringGear.js` | 冒险装备 |
+
+## AC 与装备计算
+
+装备页会自动计算当前 AC：
+
+- 穿戴轻甲时，使用护甲基础 AC 加敏捷调整值。
+- 穿戴中甲时，敏捷调整值受到护甲上限限制。
+- 穿戴重甲时，使用护甲固定 AC。
+- 装备盾牌且角色拥有盾牌训练时，AC 增加 `+2`。
+- 未穿戴护甲时，使用职业或子职业提供的无甲 AC 公式；没有特殊公式时使用 `10 + 敏捷调整值`。
+
+装备页也会提示：
+
+- 当前角色是否拥有对应护甲训练。
+- 是否拥有盾牌训练。
+- 穿戴重甲时力量是否不足。
+
+武器选择目前用于角色卡记录。工具和冒险装备已经整理为规则数据，但尚未实现完整的商店、负重和金币结算流程。
+
+## 打印与 PDF
+
+项目当前推荐使用 HTML 角色卡导出：
+
+1. 在最终角色卡页面打开打印角色卡。
+2. 在 `/print` 页面点击“打印 / 另存为 PDF”。
+3. 在浏览器打印窗口中选择“另存为 PDF”。
+
+HTML 打印页会尽量保持角色卡的双页布局，比直接填写第三方 PDF 表单更稳定，也更方便后续调整样式。
+
+## 管理后台
+
+管理端通过 SQLite 保存数据覆盖项。常见操作：
+
+1. 打开 `/admin`。
+2. 使用管理员账户登录。
+3. 选择种族、职业或背景。
+4. 新增内容，或编辑内置内容生成覆盖项。
+5. 对内置内容使用“恢复默认”，即可删除覆盖项并重新使用前端内置版本。
+
+后端运行后会产生以下持久化内容：
+
+```text
+server/game-data.db
+server/uploads/
+```
+
+部署时请备份这两个位置，并避免将真实数据库、上传文件和生产密钥提交到公开仓库。
+
+## 自定义职业导入
+
+除了管理后台，职业选择页还支持导入本地 JSON 文件。导入内容会保存在当前浏览器中，适合快速测试家庭规则。
 
 最小示例：
 
 ```json
 {
-  "id": "custom-class",
-  "name": "自定义职业",
-  "nameEn": "Custom Class",
-  "tagline": "一条简短的职业描述",
-  "color": "#7A6A2A",
-  "hitDie": "d8",
-  "primaryAbility": "敏捷或智力",
-  "saves": ["敏捷", "智力"],
-  "armor": ["轻甲"],
-  "weapons": ["简易武器"],
-  "tools": [],
+  "id": "custom-warden",
+  "name": "守望者",
+  "nameEn": "Warden",
+  "intro": "一个用于测试的自定义职业。",
+  "hitDie": 10,
+  "primaryAbilities": ["力量", "感知"],
+  "savingThrows": ["力量", "感知"],
+  "armor": ["轻甲", "中甲", "盾牌"],
+  "weapons": ["简易武器", "军用武器"],
   "skillChoices": {
     "count": 2,
-    "options": ["奥秘", "调查", "察觉", "隐匿"]
+    "options": ["运动", "察觉", "求生", "自然"]
   },
-  "equipment": {
-    "a": "方案 A 装备描述",
-    "b": "方案 B 金币或装备描述"
-  },
-  "subclassLevel": 3,
-  "level1Features": [
-    {
-      "level": 1,
-      "name": "一级特性",
-      "nameEn": "Level 1 Feature",
-      "desc": "特性说明。"
-    }
-  ],
-  "notableFeatures": [],
   "subclasses": [
     {
-      "id": "custom-subclass",
-      "name": "自定义子职",
-      "nameEn": "Custom Subclass",
-      "color": "#7A6A2A",
-      "tagline": "子职简介",
-      "desc": "子职说明",
-      "features": []
-    }
-  ],
-  "classProgression": []
-}
-```
-
-如果职业是施法者，可以额外加入：
-
-```json
-{
-  "spellList": "wizard",
-  "spellcastingAbility": "智力",
-  "spellcastingProgression": [
-    {
-      "level": 1,
-      "cantrips": 3,
-      "prepared": 4,
-      "slots": { "1": 2 }
+      "id": "guardian",
+      "name": "守护者",
+      "nameEn": "Guardian",
+      "description": "偏向保护队友。"
     }
   ]
 }
 ```
 
-魔契施法可以使用 `pactMagicProgression`。
+如未填写 `progression`，系统会为自定义职业补充常用的默认进阶选择。需要精细控制时，可以参考 `src/data/classes.js` 中内置职业的结构。
 
-## 数据扩展建议
+## 生产部署
 
-- 新增内置职业：编辑 `src/data/classes.js`。
-- 新增种族：编辑 `src/data/races.js`。
-- 新增背景：编辑 `src/data/backgrounds.js`。
-- 新增专长：编辑 `src/data/originFeats.js`、`src/data/generalFeats.js` 或 `src/data/fightingStyleFeats.js`。
-- 新增法术：编辑 `src/data/spells.js`，保持法术列表和详情的英文名一致，方便搜索和详情匹配。
-- 新增通用规则说明：编辑 `src/data/spellRules.js`。
+前端构建：
 
-## 本地数据
-
-角色草稿会保存在浏览器 localStorage 中，主要键名包括：
-
-```text
-dndcc:drafts:v1
-dndcc:activeDraftId
-dndcc:importedClasses:v1
+```powershell
+$env:VITE_API_URL='https://your-api.example.com'
+npm run build
 ```
 
-清空浏览器站点数据会删除本地草稿和导入职业。
+生成的静态文件位于 `dist/`。
 
-## 开发备注
+后端启动：
 
-- 目前没有后端服务，所有数据都在前端静态文件和浏览器本地存储中。
-- 中文规则文本较多，构建产物可能出现 chunk 偏大的提示，这是当前数据集中在前端包内导致的。
-- 项目数据用于建卡辅助和规则速查，具体规则裁定仍以桌面主持人与所使用规则书为准。
+```powershell
+cd server
+npm install --omit=dev
+$env:JWT_SECRET='replace-with-a-long-random-secret'
+$env:PORT='3001'
+npm start
+```
 
-## Roadmap
+可以选择以下任意一种部署方式：
 
-- 完整装备选择器
-- 护甲、盾牌、无甲防御、法术和专长联动的 AC 自动计算
-- 导入 JSON 模板文档
-- 法术数据拆分与按需加载
-- 角色卡导出和打印
-- 更多自定义规则模块
+1. 为前端和 API 分配不同域名，并在构建前端时设置 `VITE_API_URL`。
+2. 使用同域名反向代理，将 `/api` 和 `/uploads` 转发到 Node 服务。
+
+如果启用了图片上传，必须确保 `/uploads` 可以从浏览器访问。
+
+## 浏览器存储
+
+玩家数据和部分本地配置保存在浏览器中：
+
+| 键 | 用途 |
+| --- | --- |
+| `dndcc:drafts:v1` | 角色草稿 |
+| `dndcc:activeDraftId` | 当前角色草稿 |
+| `dndcc:importedClasses:v1` | 本地导入职业 |
+| `dnd_admin_token` | 管理后台登录令牌 |
+
+角色草稿目前没有同步到服务器。更换浏览器或清除站点数据前，请自行保留需要的角色信息。
+
+## 当前边界
+
+项目已经具备完整的基础车卡流程，但仍有一些适合继续扩展的方向：
+
+- 为法术、专长和装备增加管理后台。
+- 增加角色账户与云端草稿同步。
+- 为规则计算补充更多自动化测试。
+- 增加完整的金币、负重、容器和冒险装备管理。
+- 继续优化移动端布局与大型规则数据的按需加载。
+- 为生产环境增加更完整的权限、日志、备份和迁移方案。
+
+## 开发说明
+
+- 玩家端可以脱离后端独立运行。
+- 后端是一个轻量的内容覆盖层，不是完整的用户系统。
+- 管理后台更适合桌面端操作；玩家端可以继续逐步优化手机端体验。
+- 修改规则计算时，优先将纯逻辑放在 `src/utils/` 中，并为关键分支补充测试。

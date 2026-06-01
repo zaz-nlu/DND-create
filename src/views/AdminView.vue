@@ -250,7 +250,7 @@ function startNew() {
   const templates = {
     race:       { id: `custom-race-${ts}`, name: '新种族', nameEn: 'New Race', color: '#888888', image: '', lore: '', fullLore: '', type: '类人', size: '中型', speed: 30, lifespan: 100, sizeOptions: [], mechanics: { speed: 30, darkvision: 0, hpBonusPerLevel: 0, damageResistances: [], cantrips: [], languages: ['通用语'] }, traits: [] },
     background: { id: `custom-bg-${ts}`, name: '新背景', nameEn: 'New Background', color: '#888888', lore: '', fullLore: '', abilityScores: ['力量', '敏捷', '魅力'], feat: { name: '', nameEn: '' }, skills: [], tools: [], equipment: { a: '', b: '50 GP' } },
-    class:      { id: `custom-class-${ts}`, name: '新职业', nameEn: 'New Class', tagline: '', color: '#888888', image: '', lore: '', fullLore: '', primaryAbility: '力量', hitDie: 'd8', spellcastingAbility: '', spellList: '', subclassLevel: 3, saves: ['力量', '体质'], weapons: [], armor: [], tools: [], skillChoices: { count: 2, options: [] }, equipment: { a: '', b: '50 GP' }, level1Features: [], spellcastingProgression: null, subclasses: [] },
+    class:      { id: `custom-class-${ts}`, name: '新职业', nameEn: 'New Class', tagline: '', color: '#888888', image: '', lore: '', fullLore: '', primaryAbility: '力量', hitDie: 'd8', spellcastingAbility: '', spellList: '', subclassLevel: 3, saves: ['力量', '体质'], weapons: [], armor: [], tools: [], skillChoices: { count: 2, options: [] }, equipment: { a: '', b: '50 GP' }, level1Features: [], spellcastingProgression: null, subclasses: [], acFormula: null },
   }
   selected.value = templates[activeTab.value]
   formKey.value++

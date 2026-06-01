@@ -1,5 +1,6 @@
 import { reactive } from 'vue'
 import { readImportedClasses } from './importedRules.js'
+import { gunslingerClass } from './gunslinger.js'
 import { buildStandardProgression } from '../utils/progression.js'
 
 export const builtinClasses = [
@@ -1792,6 +1793,7 @@ export const builtinClasses = [
       { level: 19, choices: [{ id: 'feat-19', kind: 'generalFeat', minLevel: 19 }] },
     ],
   },
+  gunslingerClass,
 ]
 
 export const classes = reactive([

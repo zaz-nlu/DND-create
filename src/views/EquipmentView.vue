@@ -8,7 +8,7 @@ import { classes } from '../data/classes.js'
 import { getWeaponMasteryById, getWeaponPropertyById, weapons } from '../data/weapons.js'
 import { character, addInventoryItem, removeInventoryItem, setEquippedArmor, setEquippedShield } from '../store/character.js'
 import { getAbilityTotalRows } from '../utils/abilityTotals.js'
-import { calculateCharacterAc, getEquippedArmor, hasArmorTraining, hasShieldTraining } from '../utils/equipment.js'
+import { calculateCharacterAc, calculateFormulaAc, getEquippedArmor, hasArmorTraining, hasShieldTraining } from '../utils/equipment.js'
 import StepNav from './StepNav.vue'
 
 const router = useRouter()
@@ -102,6 +102,12 @@ const shieldWarning = computed(() => {
   return '当前职业没有盾牌受训，因此盾牌不会提供 +2 AC。'
 })
 
+// 无甲时的 AC 预览 —— 考虑职业自定义 acFormula
+const unarmoredAcPreview = computed(() => {
+  const formula = selectedSubclass.value?.acFormula ?? selectedClass.value?.acFormula ?? null
+  return calculateFormulaAc(formula, abilityMap.value, dexMod.value)
+})
+
 function calculateArmorAcPreview(armor) {
   const dexBonus = armor.ac.dex
     ? Math.min(dexMod.value, armor.ac.dexMax ?? dexMod.value)
@@ -129,6 +135,7 @@ function weaponMasteryText(weapon) {
 
 function hasWeaponTraining(weapon) {
   const trainingText = weaponTraining.value.join(' ')
+  if (weapon.rangeType === 'ranged' && trainingText.includes('军用远程武器')) return true
   if (trainingText.includes('军用武器')) return true
   if (weapon.category === 'simple' && trainingText.includes('简易武器')) return true
   if (
@@ -227,8 +234,8 @@ function toggleShield() {
             @click="selectArmor(null)"
           >
             <span class="armor-name">不穿护甲</span>
-            <span class="armor-ac">AC {{ 10 + dexMod }}</span>
-            <span class="armor-meta">基础防御</span>
+            <span class="armor-ac">AC {{ unarmoredAcPreview }}</span>
+            <span class="armor-meta">{{ selectedClass?.acFormula ? '职业无甲公式' : '基础防御' }}</span>
           </button>
 
           <button
