@@ -239,7 +239,8 @@ export function setRuleset(ruleset) {
 
 export function setRace(raceId) {
   if (character.race.id !== raceId) {
-    delete character.race.choices.skillProficiency
+    // 清理旧种族的所有选择（技能、法术、施法属性等）
+    character.race.choices = {}
   }
   character.race.id = raceId
   touchDraft()

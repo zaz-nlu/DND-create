@@ -12,6 +12,9 @@ import { ABILITY_EN, ABILITY_IDS, abilityMod, modStr } from '../utils/abilities.
 import { getAbilityTotalRows } from '../utils/abilityTotals.js'
 import { calculateCharacterAc, getEquippedArmor, hasArmorTraining, hasShieldTraining } from '../utils/equipment.js'
 import { getRequirementsForLevel } from '../utils/progression.js'
+import { getSkillMap } from '../utils/skillProficiencies.js'
+import { getRaceSpellGrants } from '../utils/raceSpells.js'
+import { findSpellByBaseId } from '../data/spells.js'
 import StepNav from './StepNav.vue'
 import PdfExporter from '../components/PdfExporter.vue'
 import SpellBookModal from './SpellBookModal.vue'
@@ -45,46 +48,41 @@ const savingThrows = computed(() =>
   })
 )
 
-const SKILL_ABILITY = {
-  '运动': '力量',
-  '体操': '敏捷', '巧手': '敏捷', '隐匿': '敏捷',
-  '奥秘': '智力', '历史': '智力', '调查': '智力', '侦查': '智力', '自然': '智力', '宗教': '智力',
-  '驯兽': '感知', '洞悉': '感知', '医学': '感知', '察觉': '感知', '求生': '感知',
-  '欺瞒': '魅力', '威吓': '魅力', '表演': '魅力', '游说': '魅力',
-}
-
-const ALL_SKILLS = Object.keys(SKILL_ABILITY)
+const bgSkillSet = computed(() => new Set(selectedBackground.value?.skills ?? []))
+const classSkillSet = computed(() => new Set(character.class.choices?.skills ?? []))
+const raceSkillSingle = computed(() => character.race.choices?.skillProficiency ?? null)
+const skilledSkillSet = computed(() => new Set(character.race.choices?.skilledSkills ?? []))
 
 const proficientSkills = computed(() => {
-  const bgSkills = selectedBackground.value?.skills ?? []
-  const classSkills = character.class.choices?.skills ?? []
-  const raceSkill = character.race.choices?.skillProficiency ? [character.race.choices.skillProficiency] : []
-  const allProf = [...new Set([...bgSkills, ...classSkills, ...raceSkill])]
-
-  return ALL_SKILLS.map(skill => {
-    const ability = SKILL_ABILITY[skill]
-    const row = abilityMap.value[ability]
-    const source = bgSkills.includes(skill) ? '背景'
-      : classSkills.includes(skill) ? '职业'
-      : raceSkill.includes(skill) ? '种族'
-      : null
-    const isProficient = !!source
-    const expertLevel = character.skills?.[skill] ?? null
-    const multiplier = expertLevel === 'expert' ? 2 : expertLevel === 'proficient' ? 1 : isProficient ? 1 : 0
-    const total = row.mod + multiplier * profBonus.value
-    return {
-      name: skill,
-      ability,
-      abilityEn: ABILITY_EN[ability],
-      isProficient: isProficient || !!expertLevel,
-      source,
-      total,
-      totalText: (total >= 0 ? '+' : '') + total,
-    }
+  const skillEntries = getSkillMap(character, {
+    selectedClass: selectedClass.value,
+    selectedBackground: selectedBackground.value,
   })
+  return skillEntries
+    .filter(s => s.proficient || s.expert)
+    .map(s => {
+      const row = abilityMap.value[s.ability]
+      const total = (row?.mod ?? 0) + s.multiplier * profBonus.value
+      const source = bgSkillSet.value.has(s.skill) ? '背景'
+        : classSkillSet.value.has(s.skill) ? '职业'
+        : raceSkillSingle.value === s.skill ? '种族'
+        : skilledSkillSet.value.has(s.skill) ? '熟习'
+        : s.expert ? '专精'
+        : '专长'
+      return {
+        name: s.skill,
+        ability: s.ability,
+        abilityEn: ABILITY_EN[s.ability],
+        isProficient: s.proficient,
+        isExpert: s.expert,
+        source,
+        total,
+        totalText: (total >= 0 ? '+' : '') + total,
+      }
+    })
 })
 
-const proficientSkillsList = computed(() => proficientSkills.value.filter(s => s.isProficient))
+const proficientSkillsList = computed(() => proficientSkills.value)
 
 const dexMod = computed(() => abilityMap.value['敏捷']?.mod ?? 0)
 const initiative = computed(() => dexMod.value)
@@ -169,6 +167,27 @@ const classProficiencies = computed(() => {
 })
 
 const raceMechanics = computed(() => selectedRace.value?.mechanics ?? null)
+
+const raceSpellGrants = computed(() => getRaceSpellGrants(character, selectedRace.value))
+
+// 所有种族法术（固定戏法 + 已选自选戏法 + 按等级解锁法术），用于角色卡展示
+const raceSpellList = computed(() => {
+  const g = raceSpellGrants.value
+  const items = []
+  for (const c of g.fixedCantrips) {
+    items.push({ label: `${c.name}（${c.nameEn}）`, tag: '戏法', source: c.source })
+  }
+  for (const slot of g.cantripChoiceSlots) {
+    for (const baseId of slot.chosen) {
+      const spell = findSpellByBaseId(baseId)
+      items.push({ label: `${spell?.name ?? baseId}（${spell?.nameEn ?? baseId}）`, tag: '戏法', source: slot.source })
+    }
+  }
+  for (const s of g.leveledSpells) {
+    items.push({ label: `${s.name}（${s.nameEn}）`, tag: `${s.level}环`, source: s.source })
+  }
+  return items
+})
 
 // 解析种族的额外选择（龙族血统、精灵血系、巨人先祖等）
 const resolvedRaceChoices = computed(() => {
@@ -324,9 +343,19 @@ function startNewCharacter() {
           <span class="sheet-prof-label">伤害抗性</span>
           <span class="sheet-prof-val">{{ raceMechanics.damageResistances.join('、') }}</span>
         </div>
-        <div v-if="raceMechanics?.cantrips?.length" class="sheet-prof-item">
-          <span class="sheet-prof-label">种族戏法</span>
-          <span class="sheet-prof-val">{{ raceMechanics.cantrips.join('、') }}</span>
+        <div v-if="raceSpellList.length" class="sheet-prof-item sheet-prof-item--wide">
+          <span class="sheet-prof-label">种族法术</span>
+          <div class="sheet-race-spells">
+            <span
+              v-for="(item, i) in raceSpellList"
+              :key="i"
+              class="sheet-race-spell-tag"
+              :title="item.source"
+            >
+              {{ item.label }}
+              <em>{{ item.tag }}</em>
+            </span>
+          </div>
         </div>
         <div v-if="raceMechanics?.languages?.length" class="sheet-prof-item">
           <span class="sheet-prof-label">语言</span>
@@ -977,6 +1006,37 @@ function startNewCharacter() {
 .sheet-prof-none {
   color: var(--text-dim);
   font-style: italic;
+}
+
+.sheet-prof-item--wide {
+  grid-column: 1 / -1;
+}
+
+.sheet-race-spells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.sheet-race-spell-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid rgba(201, 168, 76, 0.2);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.sheet-race-spell-tag em {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--gold);
+  background: rgba(201, 168, 76, 0.1);
+  padding: 0 4px;
+  border-radius: 3px;
 }
 
 /* Actions */

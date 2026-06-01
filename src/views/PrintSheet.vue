@@ -13,6 +13,7 @@ import { ABILITY_EN, ABILITY_IDS } from '../utils/abilities.js'
 import { getAbilityTotalRows } from '../utils/abilityTotals.js'
 import { calculateCharacterAc, getEquippedArmor, hasShieldTraining } from '../utils/equipment.js'
 import { getRequirementsForLevel } from '../utils/progression.js'
+import { getSkillMap } from '../utils/skillProficiencies.js'
 
 const router = useRouter()
 
@@ -20,26 +21,7 @@ function printSheet() {
   globalThis.print?.()
 }
 
-const SKILL_ABILITY = {
-  运动: '力量',
-  体操: '敏捷',
-  巧手: '敏捷',
-  隐匿: '敏捷',
-  奥秘: '智力',
-  历史: '智力',
-  调查: '智力',
-  自然: '智力',
-  宗教: '智力',
-  驯兽: '感知',
-  洞悉: '感知',
-  医药: '感知',
-  察觉: '感知',
-  求生: '感知',
-  欺瞒: '魅力',
-  威吓: '魅力',
-  表演: '魅力',
-  游说: '魅力',
-}
+// SKILL_ABILITY 已移入 skillProficiencies.js，PrintSheet 直接使用聚合层
 
 const selectedRace = computed(() => races.find(race => race.id === character.race.id) ?? null)
 const selectedClass = computed(() => classes.find(cls => cls.id === character.class.id) ?? null)
@@ -69,22 +51,18 @@ const savingRows = computed(() =>
 )
 
 const skillRows = computed(() => {
-  const backgroundSkills = selectedBackground.value?.skills ?? []
-  const classSkills = character.class.choices?.skills ?? []
-  const raceSkill = character.race.choices?.skillProficiency
-    ? [character.race.choices.skillProficiency]
-    : []
-
-  return Object.entries(SKILL_ABILITY).map(([skill, ability]) => {
-    const row = abilityMap.value[ability]
-    const baseProficient = [...backgroundSkills, ...classSkills, ...raceSkill].includes(skill)
-    const expertLevel = character.skills?.[skill] ?? null
-    const multiplier = expertLevel === 'expert' ? 2 : (baseProficient || expertLevel === 'proficient') ? 1 : 0
-    const total = (row?.mod ?? 0) + multiplier * profBonus.value
+  const entries = getSkillMap(character, {
+    selectedClass: selectedClass.value,
+    selectedBackground: selectedBackground.value,
+  })
+  return entries.map(s => {
+    const row = abilityMap.value[s.ability]
+    const total = (row?.mod ?? 0) + s.multiplier * profBonus.value
     return {
-      skill,
-      ability,
-      isProficient: baseProficient || Boolean(expertLevel),
+      skill: s.skill,
+      ability: s.ability,
+      isProficient: s.proficient || s.expert,
+      isExpert: s.expert,
       text: signed(total),
     }
   })

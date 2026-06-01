@@ -10,6 +10,7 @@ import { races } from '../data/races.js'
 import { character, setBackgroundAbilityBonuses, setClassChoice, setRaceChoice } from '../store/character.js'
 import { getAbilityTotalScores } from '../utils/abilityTotals.js'
 import { getRequirementsForLevel } from '../utils/progression.js'
+import { DND_SKILLS, getSkillMap } from '../utils/skillProficiencies.js'
 import FeatDetailModal from './FeatDetailModal.vue'
 import StepNav from './StepNav.vue'
 import AbilityBar from '../components/AbilityBar.vue'
@@ -32,21 +33,12 @@ function closeFeatDetail() {
 
 function pickFromModal(feat) {
   if (detailKind.value === 'origin') {
-    if (isHuman.value) {
-      selectHumanFeat(feat)
-    }
+    if (isHuman.value) selectHumanFeat(feat)
   } else {
     selectGeneralFeat(feat, detailSlotId.value)
   }
   closeFeatDetail()
 }
-
-const DND_SKILLS = [
-  '运动', '体操', '巧手', '隐匿',
-  '奥秘', '历史', '调查', '侦查', '自然', '宗教',
-  '驯兽', '洞悉', '医学', '察觉', '求生',
-  '欺瞒', '威吓', '表演', '游说',
-]
 
 const router = useRouter()
 
@@ -61,6 +53,119 @@ const selectedClass = computed(() =>
 const selectedBackground = computed(() =>
   backgrounds.find(background => background.id === character.background.id) ?? null
 )
+
+// ─── 技能聚合层（单一事实来源）────────────────────────────────────────────────
+const skillMap = computed(() =>
+  getSkillMap(character, {
+    selectedClass: selectedClass.value,
+    selectedBackground: selectedBackground.value,
+  })
+)
+
+// 当前已熟练技能列表（用于专精候选池）
+const allProficientSkills = computed(() =>
+  skillMap.value.filter(s => s.proficient).map(s => s.skill)
+)
+
+// 职业 progression 中所有 expertise 类型槽位
+const expertiseProgressionSlots = computed(() => {
+  if (!selectedClass.value?.progression) return []
+  return getRequirementsForLevel(selectedClass.value, character.level)
+    .filter(r => r.kind === 'expertise')
+})
+
+function getExpertiseSlotChoices(slotId) {
+  const raw = character.class.choices?.[slotId]
+  return Array.isArray(raw) ? raw : []
+}
+
+function toggleExpertiseChoice(slotId, skill, count) {
+  const current = [...getExpertiseSlotChoices(slotId)]
+  const idx = current.indexOf(skill)
+  if (idx >= 0) {
+    current.splice(idx, 1)
+  } else if (current.length < count) {
+    current.push(skill)
+  }
+  setClassChoice(slotId, current)
+}
+
+// 某个专精槽的候选池：已熟练 且 未被其他来源专精
+function expertiseCandidates(slotId, pool) {
+  const currentChoices = getExpertiseSlotChoices(slotId)
+  return skillMap.value
+    .filter(s => {
+      if (!s.proficient) return false
+      if (pool && !pool.includes(s.skill)) return false
+      if (!s.expert) return true
+      return currentChoices.includes(s.skill) // 专精来自本槽，可重选/取消
+    })
+    .map(s => s.skill)
+}
+
+// 通用专长授予的技能熟练和专精
+function getFeatSkillProfChoices(slotId) {
+  const raw = character.class.choices?.[slotId + '_skillProf']
+  return Array.isArray(raw) ? raw : []
+}
+
+function getFeatExpertiseChoices(slotId) {
+  const raw = character.class.choices?.[slotId + '_expertise']
+  return Array.isArray(raw) ? raw : []
+}
+
+function toggleFeatSkillProf(slotId, skill, count) {
+  const current = [...getFeatSkillProfChoices(slotId)]
+  const idx = current.indexOf(skill)
+  if (idx >= 0) {
+    current.splice(idx, 1)
+    // 取消熟练时同步清除此技能的专精
+    const expArr = [...getFeatExpertiseChoices(slotId)]
+    const expIdx = expArr.indexOf(skill)
+    if (expIdx >= 0) {
+      expArr.splice(expIdx, 1)
+      setClassChoice(slotId + '_expertise', expArr.length ? expArr : null)
+    }
+  } else if (current.length < count) {
+    current.push(skill)
+  }
+  setClassChoice(slotId + '_skillProf', current.length ? current : null)
+}
+
+function toggleFeatExpertise(slotId, skill, count) {
+  const current = [...getFeatExpertiseChoices(slotId)]
+  const idx = current.indexOf(skill)
+  if (idx >= 0) {
+    current.splice(idx, 1)
+  } else if (current.length < count) {
+    current.push(skill)
+  }
+  setClassChoice(slotId + '_expertise', current.length ? current : null)
+}
+
+// 专长授予技能熟练的候选池：排除已通过其他来源获得的熟练
+function featSkillProfCandidates(slotId) {
+  const slotChoices = getFeatSkillProfChoices(slotId)
+  // 所有熟练技能中，排除本槽自己选的，剩余为"其他来源熟练"
+  const otherProficient = new Set(
+    skillMap.value
+      .filter(s => s.proficient && !slotChoices.includes(s.skill))
+      .map(s => s.skill)
+  )
+  return DND_SKILLS.filter(s => !otherProficient.has(s))
+}
+
+// 专长授予专精的候选池：已熟练 且 未被其他来源专精
+function featExpertiseCandidates(slotId) {
+  const currentChoices = getFeatExpertiseChoices(slotId)
+  return skillMap.value
+    .filter(s => {
+      if (!s.proficient) return false
+      if (!s.expert) return true
+      return currentChoices.includes(s.skill)
+    })
+    .map(s => s.skill)
+}
 
 const backgroundFeat = computed(() => selectedBackground.value?.feat ?? null)
 const backgroundOriginFeat = computed(() =>
@@ -227,12 +332,33 @@ const isBonusValid = computed(() => {
     entries.some(([, value]) => value === 1)
 })
 
+const isExpertiseProgressionValid = computed(() =>
+  expertiseProgressionSlots.value.every(slot =>
+    getExpertiseSlotChoices(slot.id).length >= slot.count
+  )
+)
+
+const isFeatGrantsValid = computed(() =>
+  generalFeatSlots.value.every(slot => {
+    const feat = findGeneralFeatById(character.class.choices?.[slot.id])
+    if (feat?.grants?.skillProficiency) {
+      if (getFeatSkillProfChoices(slot.id).length < feat.grants.skillProficiency.count) return false
+    }
+    if (feat?.grants?.expertise) {
+      if (getFeatExpertiseChoices(slot.id).length < feat.grants.expertise.count) return false
+    }
+    return true
+  })
+)
+
 const isFeatValid = computed(() =>
   isBonusValid.value &&
   isClassSkillValid.value &&
   isHumanFeatValid.value &&
   isFightingStyleValid.value &&
-  isGeneralFeatSelectionValid.value
+  isGeneralFeatSelectionValid.value &&
+  isExpertiseProgressionValid.value &&
+  isFeatGrantsValid.value
 )
 const featFooterHint = computed(() => {
   if (!isClassSkillValid.value) return `请选择 ${classSkillCount.value} 项职业技能熟练（已选 ${classSkillChoices.value.length}）`
@@ -245,7 +371,14 @@ const featFooterHint = computed(() => {
     return '请选择额外起源专长'
   }
   if (!isFightingStyleValid.value) return '请选择战斗风格专长'
+  if (!isExpertiseProgressionValid.value) {
+    const unmet = expertiseProgressionSlots.value.find(s =>
+      getExpertiseSlotChoices(s.id).length < s.count
+    )
+    return unmet ? `请完成 ${unmet.unlockedAt} 级专精选择` : '请完成专精选择'
+  }
   if (!isGeneralFeatSelectionValid.value) return `请完成通用专长选择（${generalFeatSlots.value.length} 个槽位）`
+  if (!isFeatGrantsValid.value) return '请完成专长附带的技能熟练/专精选择'
   return ''
 })
 
@@ -265,36 +398,54 @@ function summaryBonus() {
 
 const featSteps = computed(() => {
   const items = []
+
   items.push({
-    id: 'bonus',
+    id: 'bonus', kind: 'bonus',
     label: '背景属性加值',
     kicker: 'BACKGROUND · ABILITY BONUS',
     isValid: isBonusValid.value,
     summary: isBonusValid.value ? summaryBonus() : '',
   })
+
   if (classSkillSlot.value) {
     items.push({
-      id: 'class-skills',
+      id: 'class-skills', kind: 'class-skills',
       label: '职业技能熟练',
       kicker: 'CLASS · SKILL PROFICIENCY',
       isValid: isClassSkillValid.value,
       summary: classSkillChoices.value.join('、'),
     })
   }
+
+  // 职业 progression 专精槽（法师学者2级、游侠2/9级）
+  for (const slot of expertiseProgressionSlots.value) {
+    const choices = getExpertiseSlotChoices(slot.id)
+    items.push({
+      id: slot.id, kind: 'class-expertise',
+      label: `${slot.unlockedAt} 级 · 技能专精`,
+      kicker: `CLASS · EXPERTISE · LV.${slot.unlockedAt}`,
+      isValid: choices.length >= slot.count,
+      summary: choices.join('、'),
+      count: slot.count,
+      pool: slot.pool ?? null,
+    })
+  }
+
   for (const slot of fightingStyleSlots.value) {
     const chosen = findFightingStyleFeatById(character.class.choices?.[slot.id])
     items.push({
-      id: slot.id,
+      id: slot.id, kind: 'fighting-style',
       label: '战斗风格专长',
       kicker: 'FIGHTING STYLE FEAT',
       isValid: !!chosen,
       summary: chosen?.name ?? '',
     })
   }
+
   if (isHuman.value) {
     const basePicked = !!selectedHumanFeat.value && canPickHumanFeat(selectedHumanFeat.value)
     items.push({
-      id: 'human-feat',
+      id: 'human-feat', kind: 'human-feat',
       label: '额外起源专长',
       kicker: '人类 · ORIGIN FEAT',
       isValid: basePicked,
@@ -302,7 +453,7 @@ const featSteps = computed(() => {
     })
     if (isSkilled.value) {
       items.push({
-        id: 'skilled-skills',
+        id: 'skilled-skills', kind: 'skilled-skills',
         label: '熟习 · 技能选择',
         kicker: 'SKILLED · SKILL PROFICIENCY',
         isValid: skilledChoices.value.length === 3,
@@ -310,17 +461,49 @@ const featSteps = computed(() => {
       })
     }
   }
+
   for (const slot of generalFeatSlots.value) {
     const feat = findGeneralFeatById(character.class.choices?.[slot.id])
     const done = !!feat && canPickGeneralFeat(feat) && isFeatAbilityChoiceDone(slot.id, feat)
     items.push({
-      id: slot.id,
+      id: slot.id, kind: 'general-feat',
       label: `${slot.minLevel ?? 4} 级通用专长`,
       kicker: `GENERAL FEAT · LV.${slot.minLevel ?? 4}`,
       isValid: done,
       summary: feat?.name ?? '',
     })
+
+    // 专长授予技能熟练（如技艺专家 skill-expert）
+    if (feat?.grants?.skillProficiency) {
+      const profCount = feat.grants.skillProficiency.count
+      const choices = getFeatSkillProfChoices(slot.id)
+      items.push({
+        id: slot.id + '_skillProf', kind: 'feat-skill-prof',
+        label: '专长 · 技能熟练',
+        kicker: `FEAT GRANT · SKILL PROFICIENCY · ${feat.nameEn}`,
+        isValid: choices.length >= profCount,
+        summary: choices.join('、'),
+        slotId: slot.id,
+        count: profCount,
+      })
+    }
+
+    // 专长授予专精（如技艺专家 skill-expert）
+    if (feat?.grants?.expertise) {
+      const expCount = feat.grants.expertise.count
+      const choices = getFeatExpertiseChoices(slot.id)
+      items.push({
+        id: slot.id + '_expertise', kind: 'feat-expertise',
+        label: '专长 · 专精',
+        kicker: `FEAT GRANT · EXPERTISE · ${feat.nameEn}`,
+        isValid: choices.length >= expCount,
+        summary: choices.join('、'),
+        slotId: slot.id,
+        count: expCount,
+      })
+    }
   }
+
   return items
 })
 
@@ -420,8 +603,11 @@ function canPickGeneralFeat(feat) {
 
 function selectGeneralFeat(feat, slotId) {
   if (!canPickGeneralFeat(feat)) return
-  // 切换专长时清除旧属性选择
-  ;[slotId + '_asi', slotId + '_asiMode', slotId + '_asiA1', slotId + '_asiA2'].forEach(k => {
+  // 切换专长时清除旧属性选择和旧的技能熟练/专精授予
+  ;[
+    slotId + '_asi', slotId + '_asiMode', slotId + '_asiA1', slotId + '_asiA2',
+    slotId + '_skillProf', slotId + '_expertise',
+  ].forEach(k => {
     if (character.class.choices?.[k] !== undefined) setClassChoice(k, null)
   })
   setClassChoice(slotId, feat.id)
@@ -508,7 +694,7 @@ function goNext() {
           <div class="step-active-body">
 
             <!-- ── 背景属性加值 ── -->
-            <template v-if="step.id === 'bonus'">
+            <template v-if="step.kind === 'bonus'">
               <p class="step-desc">只能在背景提供的三项属性中选择。</p>
               <div class="bonus-mode-grid">
                 <button type="button" :class="['bonus-mode', { active: bonusMode === '2+1' }]" @click="selectMode('2+1')">
@@ -538,7 +724,7 @@ function goNext() {
             </template>
 
             <!-- ── 职业技能熟练 ── -->
-            <template v-else-if="step.id === 'class-skills'">
+            <template v-else-if="step.kind === 'class-skills'">
               <p class="step-desc">
                 从职业技能列表中选择 {{ classSkillCount }} 项获得熟练。
                 <template v-if="selectedBackground?.skills?.length">
@@ -562,8 +748,90 @@ function goNext() {
               </p>
             </template>
 
+            <!-- ── 职业专精（法师学者、游侠专精等）── -->
+            <template v-else-if="step.kind === 'class-expertise'">
+              <p class="step-desc">
+                从已熟练的技能中选择
+                <strong>{{ step.count }}</strong> 项获得专精（专精加值 = 熟练加值 × 2）。
+                <template v-if="step.pool">
+                  <span style="color:var(--text-dim);font-size:12px">限选：{{ step.pool.join('、') }}</span>
+                </template>
+              </p>
+              <div v-if="expertiseCandidates(step.id, step.pool).length === 0" class="step-desc" style="color:rgba(220,140,80,0.8)">
+                先选择职业技能，才能在此获得专精。
+              </div>
+              <div v-else class="step-chip-grid">
+                <button
+                  v-for="skill in expertiseCandidates(step.id, step.pool)"
+                  :key="skill"
+                  type="button"
+                  :class="['step-chip', {
+                    active: getExpertiseSlotChoices(step.id).includes(skill),
+                    disabled: !getExpertiseSlotChoices(step.id).includes(skill) && getExpertiseSlotChoices(step.id).length >= step.count,
+                  }]"
+                  @click="toggleExpertiseChoice(step.id, skill, step.count)"
+                >{{ skill }}</button>
+              </div>
+              <p :class="['step-status', { complete: step.isValid }]">
+                {{ step.isValid
+                  ? `✦ 已选 ${step.count} 项专精`
+                  : `已选 ${getExpertiseSlotChoices(step.id).length} / ${step.count}` }}
+              </p>
+            </template>
+
+            <!-- ── 专长授予技能熟练 ── -->
+            <template v-else-if="step.kind === 'feat-skill-prof'">
+              <p class="step-desc">
+                专长额外授予 <strong>{{ step.count }}</strong> 项技能熟练，从你尚未熟练的技能中选择。
+              </p>
+              <div class="step-chip-grid">
+                <button
+                  v-for="skill in featSkillProfCandidates(step.slotId)"
+                  :key="skill"
+                  type="button"
+                  :class="['step-chip', {
+                    active: getFeatSkillProfChoices(step.slotId).includes(skill),
+                    disabled: !getFeatSkillProfChoices(step.slotId).includes(skill) && getFeatSkillProfChoices(step.slotId).length >= step.count,
+                  }]"
+                  @click="toggleFeatSkillProf(step.slotId, skill, step.count)"
+                >{{ skill }}</button>
+              </div>
+              <p :class="['step-status', { complete: step.isValid }]">
+                {{ step.isValid
+                  ? `✦ 已选 ${step.count} 项技能熟练`
+                  : `已选 ${getFeatSkillProfChoices(step.slotId).length} / ${step.count}` }}
+              </p>
+            </template>
+
+            <!-- ── 专长授予专精 ── -->
+            <template v-else-if="step.kind === 'feat-expertise'">
+              <p class="step-desc">
+                专长额外授予 <strong>{{ step.count }}</strong> 项专精，从已熟练（含上方新选）的技能中选择。
+              </p>
+              <div v-if="featExpertiseCandidates(step.slotId).length === 0" class="step-desc" style="color:rgba(220,140,80,0.8)">
+                请先选择技能熟练后，再来此处选择专精。
+              </div>
+              <div v-else class="step-chip-grid">
+                <button
+                  v-for="skill in featExpertiseCandidates(step.slotId)"
+                  :key="skill"
+                  type="button"
+                  :class="['step-chip', {
+                    active: getFeatExpertiseChoices(step.slotId).includes(skill),
+                    disabled: !getFeatExpertiseChoices(step.slotId).includes(skill) && getFeatExpertiseChoices(step.slotId).length >= step.count,
+                  }]"
+                  @click="toggleFeatExpertise(step.slotId, skill, step.count)"
+                >{{ skill }}</button>
+              </div>
+              <p :class="['step-status', { complete: step.isValid }]">
+                {{ step.isValid
+                  ? `✦ 已选 ${step.count} 项专精`
+                  : `已选 ${getFeatExpertiseChoices(step.slotId).length} / ${step.count}` }}
+              </p>
+            </template>
+
             <!-- ── 战斗风格专长 ── -->
-            <template v-else-if="isFightingStyleStep(step.id)">
+            <template v-else-if="step.kind === 'fighting-style'">
               <p class="step-desc">选择一种战斗风格，提供持续的被动增益。</p>
               <div class="fighting-style-grid">
                 <button
@@ -584,7 +852,7 @@ function goNext() {
             </template>
 
             <!-- ── 额外起源专长（人类）── -->
-            <template v-else-if="step.id === 'human-feat'">
+            <template v-else-if="step.kind === 'human-feat'">
               <p class="step-desc">人类额外获得一项起源专长。</p>
               <div class="origin-feat-grid">
                 <button
@@ -605,7 +873,7 @@ function goNext() {
             </template>
 
             <!-- ── 熟习 · 技能选择 ── -->
-            <template v-else-if="step.id === 'skilled-skills'">
+            <template v-else-if="step.kind === 'skilled-skills'">
               <p class="step-desc">从所有技能中自由选取 3 项，已选 <strong>{{ skilledChoices.length }} / 3</strong>。</p>
               <div class="step-chip-grid">
                 <button
@@ -622,7 +890,7 @@ function goNext() {
             </template>
 
             <!-- ── 通用专长 ── -->
-            <template v-else>
+            <template v-else-if="step.kind === 'general-feat'">
               <p class="step-desc">
                 通用专长需要 {{ getGeneralFeatSlot(step.id)?.minLevel ?? 4 }} 级以上。已用当前属性与背景加值判断先决条件。
               </p>

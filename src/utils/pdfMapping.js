@@ -5,6 +5,7 @@ import { backgrounds } from '../data/backgrounds.js'
 import { ABILITY_IDS, ABILITY_EN } from './abilities.js'
 import { getAbilityTotalRows } from './abilityTotals.js'
 import { calculateCharacterAc } from './equipment.js'
+import { getSkillMap } from './skillProficiencies.js'
 
 export function generatePdfData(character) {
   const selectedRace = races.find(r => r.id === character.race.id)
@@ -87,18 +88,9 @@ export function generatePdfData(character) {
   })
 
   // ===== 技能 (Page 1 Skills List) =====
-  const SKILL_ABILITY = {
-    '运动': '力量',
-    '体操': '敏捷', '巧手': '敏捷', '隐匿': '敏捷',
-    '奥秘': '智力', '历史': '智力', '调查': '智力', '自然': '智力', '宗教': '智力',
-    '驯兽': '感知', '洞悉': '感知', '医学': '感知', '察觉': '感知', '求生': '感知',
-    '欺瞒': '魅力', '威吓': '魅力', '表演': '魅力', '游说': '魅力',
-  }
-
-  const bgSkills = selectedBackground?.skills ?? []
-  const classSkills = character.class.choices?.skills ?? []
-  const raceSkill = character.race.choices?.skillProficiency ? [character.race.choices.skillProficiency] : []
-  const allProf = [...new Set([...bgSkills, ...classSkills, ...raceSkill])]
+  const skillLookup = Object.fromEntries(
+    getSkillMap(character, { selectedClass, selectedBackground }).map(s => [s.skill, s])
+  )
 
   const skillFields = [
     { skill: '运动', valueField: 'Text75', checkBox: 'Check Box22' },
@@ -122,14 +114,11 @@ export function generatePdfData(character) {
   ]
 
   skillFields.forEach(({ skill, valueField, checkBox }) => {
-    const ability = SKILL_ABILITY[skill]
-    const row = abilityMap[ability]
-    const isProficient = allProf.includes(skill)
-    const expertLevel = character.skills?.[skill] ?? null
-    const mult = expertLevel === 'expert' ? 2 : (isProficient || expertLevel === 'proficient') ? 1 : 0
-    const total = (row?.mod ?? 0) + mult * profBonus
+    const s = skillLookup[skill] ?? { multiplier: 0, proficient: false, expert: false, ability: '力量' }
+    const row = abilityMap[s.ability]
+    const total = (row?.mod ?? 0) + s.multiplier * profBonus
     pdfData[valueField] = (total >= 0 ? '+' : '') + total.toString()
-    if (isProficient || expertLevel) pdfData[checkBox] = 'Yes'
+    if (s.proficient || s.expert) pdfData[checkBox] = 'Yes'
   })
 
   // ===== 背景和装备信息 =====

@@ -4206,6 +4206,10 @@ export function findSpellById(id) {
   return spells.find(spell => spell.id === id) ?? null
 }
 
+export function findSpellByBaseId(baseId) {
+  return spells.find(spell => spell.baseId === baseId) ?? null
+}
+
 export function getSpellListById(listId) {
   return spellLists.find(list => list.id === listId) ?? null
 }

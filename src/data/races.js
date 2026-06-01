@@ -20,6 +20,10 @@ const hardcodedRaces = [
     name: '阿斯莫',
     nameEn: 'Aasimar',
     lore: '灵魂承载上层位面之火花，却仍有凡性。他们能用那火花的力量引来光明、治愈，或是天怒。',
+    raceSpells: {
+      cantrips: [{ baseId: 'light', ability: '魅力' }],
+      leveled: [],
+    },
     fullLore: `阿斯莫（音近 AH-sih-mar）的灵魂承载着上层位面 Upper Planes 之火花，但仍有凡性。他们有些是天使们的血嗣，有些则承接了天界之力，但都能用那火花的力量引来光明，治疗或是天怒。
 
 阿斯莫可能在任何凡命族群中出现。他们的样貌和父母相似，但是寿命却能长达 160 岁，并且携带着代表其天族传承的特征，比如说金属般的雀斑，闪耀的双眼，头顶光圈，或者天使般的肤色（即银色、亮绿色，或者红铜色）。这些特征都是阿斯莫与生俱来的，并且会随着他们天界本质的显露而愈发醒目。`,
@@ -322,15 +326,54 @@ const hardcodedRaces = [
         desc: '你不需要睡眠，魔法也不能使你陷入睡眠。你可以用 4 小时完成长休，但期间必须处于出神的冥想状态，在此期间你能保持意识清醒。',
       },
     ],
+    raceSpells: {
+      cantrips: [],
+      leveled: [],
+    },
+    spellcastingAbilityChoice: ['智力', '感知', '魅力'],
     raceChoices: [
       {
         id: 'elvenLineage',
         label: '精灵血系',
         desc: '选择你所属的精灵血系，决定你的魔法能力。',
+        driveSpells: true,
         options: [
-          { id: 'drow',      label: '卓尔',     detail: '黑暗视觉120尺 · 舞光术 · 妖火 · 黑暗术' },
-          { id: 'high-elf',  label: '高等精灵', detail: '自选戏法 · 侦测魔法 · 迷踪步' },
-          { id: 'wood-elf',  label: '木精灵',   detail: '速度35尺 · 德鲁伊伎俩 · 大步奔行 · 行动无踪' },
+          {
+            id: 'drow',
+            label: '卓尔',
+            detail: '黑暗视觉120尺 · 舞光术 · 妖火 · 黑暗术',
+            grants: {
+              cantrips: [{ baseId: 'dancing-lights' }],
+              leveled: [
+                { baseId: 'faerie-fire', level: 3 },
+                { baseId: 'darkness', level: 5 },
+              ],
+            },
+          },
+          {
+            id: 'high-elf',
+            label: '高等精灵',
+            detail: '自选戏法 · 侦测魔法 · 迷踪步',
+            grants: {
+              cantripChoice: { count: 1, fromList: 'wizard' },
+              leveled: [
+                { baseId: 'detect-magic', level: 3 },
+                { baseId: 'misty-step', level: 5 },
+              ],
+            },
+          },
+          {
+            id: 'wood-elf',
+            label: '木精灵',
+            detail: '速度35尺 · 德鲁伊伎俩 · 大步奔行 · 行动无踪',
+            grants: {
+              cantrips: [{ baseId: 'druidcraft' }],
+              leveled: [
+                { baseId: 'longstrider', level: 3 },
+                { baseId: 'pass-without-trace', level: 5 },
+              ],
+            },
+          },
         ],
       },
     ],
@@ -497,6 +540,57 @@ const hardcodedRaces = [
         desc: '你习得奇术（Thaumaturgy）戏法。当你用此特质施展它时，施法属性与你邪魔遗赠特质所用的属性相同。',
       },
     ],
+    raceSpells: {
+      cantrips: [{ baseId: 'thaumaturgy' }],
+      leveled: [],
+    },
+    spellcastingAbilityChoice: ['智力', '感知', '魅力'],
+    raceChoices: [
+      {
+        id: 'fiendishLegacy',
+        label: '邪魔遗赠',
+        desc: '选择你所承载的邪魔遗赠，决定你的魔法能力与伤害抗性。',
+        driveSpells: true,
+        options: [
+          {
+            id: 'abyssal',
+            label: '深渊',
+            detail: '毒素抗性 · 毒气喷溅 · 致病射线 · 人类定身术',
+            grants: {
+              cantrips: [{ baseId: 'poison-spray' }],
+              leveled: [
+                { baseId: 'ray-of-sickness', level: 3 },
+                { baseId: 'hold-person', level: 5 },
+              ],
+            },
+          },
+          {
+            id: 'chthonic',
+            label: '幽冥',
+            detail: '暗蚀抗性 · 颤栗之触 · 虚假生命 · 衰弱射线',
+            grants: {
+              cantrips: [{ baseId: 'chill-touch' }],
+              leveled: [
+                { baseId: 'false-life', level: 3 },
+                { baseId: 'ray-of-enfeeblement', level: 5 },
+              ],
+            },
+          },
+          {
+            id: 'infernal',
+            label: '炼狱',
+            detail: '火焰抗性 · 火焰箭 · 炼狱叱喝 · 黑暗术',
+            grants: {
+              cantrips: [{ baseId: 'fire-bolt' }],
+              leveled: [
+                { baseId: 'hellish-rebuke', level: 3 },
+                { baseId: 'darkness', level: 5 },
+              ],
+            },
+          },
+        ],
+      },
+    ],
   },
 
   {
@@ -594,6 +688,42 @@ const hardcodedRaces = [
         name: '侏儒血系',
         nameEn: 'Gnome Lineage',
         desc: '你属于一支侏儒血系，因此获得超自然能力。无论选择哪个血系，施法属性均为智力、感知或魅力（选择血系时三选一）。\n\n森林侏儒 Forest Gnome：你习得次级幻影（Minor Illusion）戏法。你始终准备了动物交谈（Speak with Animals）法术，可不消耗法术位施展，次数等于你的熟练加值，长休后重获全部次数。也可消耗任意法术位施展。\n\n岩石侏儒 Rock Gnome：你习得修复术（Mending）和魔法伎俩（Prestidigitation）戏法。此外，你可花费 10 分钟施展魔法伎俩来创造一个微型发条装置（AC 5，1 HP），如玩具、打火机或音乐盒；创建时从魔法伎俩的效果中选择一种，当你或其他生物以附赠动作触碰并激活它时产生效果。你同时最多拥有三台装置，每台在创建 8 小时后解体消失，也可以动作将其拆除。',
+      },
+    ],
+    raceSpells: {
+      cantrips: [],
+      leveled: [],
+    },
+    spellcastingAbilityChoice: ['智力', '感知', '魅力'],
+    raceChoices: [
+      {
+        id: 'gnomeLineage',
+        label: '侏儒血系',
+        desc: '选择你所属的侏儒血系，决定你的魔法能力。',
+        driveSpells: true,
+        options: [
+          {
+            id: 'forest-gnome',
+            label: '森林侏儒',
+            detail: '次级幻影戏法 · 动物交谈',
+            grants: {
+              cantrips: [{ baseId: 'minor-illusion' }],
+              leveled: [],
+            },
+          },
+          {
+            id: 'rock-gnome',
+            label: '岩石侏儒',
+            detail: '修复术 · 魔法伎俩 · 微型发条装置',
+            grants: {
+              cantrips: [
+                { baseId: 'mending' },
+                { baseId: 'prestidigitation' },
+              ],
+              leveled: [],
+            },
+          },
+        ],
       },
     ],
   },

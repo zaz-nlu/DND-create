@@ -1,5 +1,6 @@
 import { reactive } from 'vue'
 import { readImportedClasses } from './importedRules.js'
+import { buildStandardProgression } from '../utils/progression.js'
 
 export const builtinClasses = [
   {
@@ -539,6 +540,9 @@ export const builtinClasses = [
     progression: [
       { level: 1, choices: [
         { id: 'skills', kind: 'skillProficiency', source: 'classSkillChoices' },
+      ] },
+      { level: 2, choices: [
+        { id: 'expertise-wizard-2', kind: 'expertise', count: 1, pool: ['奥秘', '历史', '自然', '宗教'] },
       ] },
       { level: 3, choices: [{ id: 'subclass', kind: 'subclass' }] },
       { level: 4, choices: [{ id: 'feat-4', kind: 'generalFeat', minLevel: 4 }] },
@@ -1111,9 +1115,15 @@ export const builtinClasses = [
         { id: 'skills', kind: 'skillProficiency', source: 'classSkillChoices' },
         { id: 'fighting-style', kind: 'fightingStyleFeat', label: '战斗风格' },
       ] },
+      { level: 2, choices: [
+        { id: 'expertise-ranger-2', kind: 'expertise', count: 1 },
+      ] },
       { level: 3, choices: [{ id: 'subclass', kind: 'subclass' }] },
       { level: 4, choices: [{ id: 'feat-4', kind: 'generalFeat', minLevel: 4 }] },
       { level: 8, choices: [{ id: 'feat-8', kind: 'generalFeat', minLevel: 8 }] },
+      { level: 9, choices: [
+        { id: 'expertise-ranger-9', kind: 'expertise', count: 2 },
+      ] },
       { level: 12, choices: [{ id: 'feat-12', kind: 'generalFeat', minLevel: 12 }] },
       { level: 16, choices: [{ id: 'feat-16', kind: 'generalFeat', minLevel: 16 }] },
       { level: 19, choices: [{ id: 'feat-19', kind: 'generalFeat', minLevel: 19 }] },
@@ -1815,6 +1825,10 @@ export function applyClassOverrides(overrides) {
     }
     if (!merged.notableFeatures?.length && base.notableFeatures?.length) {
       merged.notableFeatures = base.notableFeatures
+    }
+    // DM 新建职业若无 progression，按 DnD 2024 标准自动补全
+    if (!merged.progression?.length && !base.progression?.length) {
+      merged.progression = buildStandardProgression(merged)
     }
     if (idx >= 0) {
       classes[idx] = merged

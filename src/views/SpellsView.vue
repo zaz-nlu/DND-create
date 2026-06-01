@@ -1,11 +1,14 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import AbilityBar from '../components/AbilityBar.vue'
 import { classes } from '../data/classes.js'
+import { races } from '../data/races.js'
 import { magicSchools, spellPreparationRules, spellRuleSections } from '../data/spellRules.js'
 import { getSpellListById, getSpellsByList, searchSpells } from '../data/spells.js'
 import { character, toggleCantripSpell, togglePreparedSpell } from '../store/character.js'
+import { getRaceSpellGrants } from '../utils/raceSpells.js'
+import { findSpellByBaseId } from '../data/spells.js'
 import StepNav from './StepNav.vue'
 
 const router = useRouter()
@@ -15,9 +18,23 @@ const activeStepId = ref(null)
 const detailSpell = ref(null)
 const showSpellRules = ref(false)
 
+watchEffect(() => {
+  document.body.style.overflow = (detailSpell.value || showSpellRules.value) ? 'hidden' : ''
+})
+
+onUnmounted(() => {
+  document.body.style.overflow = ''
+})
+
 const currentClass = computed(() =>
   classes.find(cls => cls.id === character.class.id) ?? null
 )
+
+const currentRace = computed(() =>
+  races.find(r => r.id === character.race.id) ?? null
+)
+
+const raceSpellGrants = computed(() => getRaceSpellGrants(character, currentRace.value))
 
 const currentSubclass = computed(() =>
   currentClass.value?.subclasses?.find(item => item.id === character.class.subclassId) ?? null
@@ -304,6 +321,33 @@ function goNext() {
           </div>
         </div>
 
+        <!-- 种族法术展示（不占职业戏法上限，额外赠送）-->
+        <div
+          v-if="raceSpellGrants.fixedCantrips.length || raceSpellGrants.leveledSpells.length || raceSpellGrants.cantripChoiceSlots.some(s => s.chosen.length)"
+          class="spells-always"
+        >
+          <span>种族法术</span>
+          <div>
+            <em
+              v-for="c in raceSpellGrants.fixedCantrips"
+              :key="'fc-' + c.baseId"
+              :title="`${c.nameEn} · ${c.ability ?? ''} · 来源：${c.source}`"
+            >{{ c.name }} <small>戏法</small></em>
+            <template v-for="slot in raceSpellGrants.cantripChoiceSlots" :key="slot.id">
+              <em
+                v-for="baseId in slot.chosen"
+                :key="'sc-' + baseId"
+                :title="`来源：${slot.source}`"
+              >{{ findSpellByBaseId(baseId)?.name ?? baseId }} <small>戏法</small></em>
+            </template>
+            <em
+              v-for="s in raceSpellGrants.leveledSpells"
+              :key="'lv-' + s.baseId"
+              :title="`${s.nameEn}（${s.level}环）· 来源：${s.source}`"
+            >{{ s.name }} <small>{{ s.level }}环</small></em>
+          </div>
+        </div>
+
         <div v-if="alwaysPrepared.length" class="spells-always">
           <span>总是准备</span>
           <div>
@@ -397,20 +441,24 @@ function goNext() {
     <div v-if="detailSpell" class="spell-detail-mask" @click.self="closeSpellDetail">
       <section class="spell-detail-panel" role="dialog" aria-modal="true">
         <button class="spell-detail-close" type="button" @click="closeSpellDetail">×</button>
-        <div class="spell-detail-kicker">{{ levelLabel(detailSpell.level) }} · {{ detailSpell.school }}</div>
-        <h2>{{ detailSpell.name }}</h2>
-        <p class="spell-detail-en">{{ detailSpell.nameEn }}</p>
-        <div class="spell-detail-tags">
-          <span v-if="detailSpell.special?.length === 0">无特殊标签</span>
-          <span v-for="flag in detailSpell.special" :key="flag">{{ flag }}</span>
+        <div class="spell-detail-header">
+          <div class="spell-detail-kicker">{{ levelLabel(detailSpell.level) }} · {{ detailSpell.school }}</div>
+          <h2>{{ detailSpell.name }}</h2>
+          <p class="spell-detail-en">{{ detailSpell.nameEn }}</p>
         </div>
-        <div v-if="spellDetailFacts(detailSpell).length" class="spell-detail-facts">
-          <div v-for="fact in spellDetailFacts(detailSpell)" :key="fact.label">
-            <span>{{ fact.label }}</span>
-            <strong>{{ fact.value }}</strong>
+        <div class="spell-detail-body">
+          <div class="spell-detail-tags">
+            <span v-if="detailSpell.special?.length === 0">无特殊标签</span>
+            <span v-for="flag in detailSpell.special" :key="flag">{{ flag }}</span>
           </div>
+          <div v-if="spellDetailFacts(detailSpell).length" class="spell-detail-facts">
+            <div v-for="fact in spellDetailFacts(detailSpell)" :key="fact.label">
+              <span>{{ fact.label }}</span>
+              <strong>{{ fact.value }}</strong>
+            </div>
+          </div>
+          <p class="spell-detail-desc">{{ spellDescription(detailSpell) }}</p>
         </div>
-        <p class="spell-detail-desc">{{ spellDescription(detailSpell) }}</p>
         <button
           class="spell-detail-pick"
           type="button"
@@ -852,11 +900,28 @@ function goNext() {
 .spell-detail-panel {
   position: relative;
   width: min(520px, 100%);
+  max-height: min(88dvh, 720px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   border: 1px solid rgba(201, 168, 76, 0.34);
   border-radius: var(--r);
   background: rgba(19, 16, 42, 0.98);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
-  padding: 22px;
+}
+
+.spell-detail-header {
+  flex-shrink: 0;
+  padding: 22px 48px 0 22px;
+}
+
+.spell-detail-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 0 22px 16px;
 }
 
 .spell-rules-panel {
@@ -1063,7 +1128,7 @@ function goNext() {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 16px;
+  margin-top: 14px;
 }
 
 .spell-detail-tags span {
@@ -1120,20 +1185,27 @@ function goNext() {
 }
 
 .spell-detail-pick {
+  flex-shrink: 0;
   width: 100%;
-  min-height: 44px;
-  margin-top: 20px;
-  border-radius: var(--r);
-  border: 1px solid rgba(201, 168, 76, 0.36);
-  background: rgba(201, 168, 76, 0.1);
+  min-height: 52px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  border-radius: 0;
+  border: none;
+  border-top: 1px solid rgba(201, 168, 76, 0.22);
+  background: rgba(201, 168, 76, 0.08);
   color: var(--gold-light);
   font-family: var(--font-title);
   font-size: 13px;
   letter-spacing: 0.08em;
+  transition: background 0.15s;
+}
+
+.spell-detail-pick:not(:disabled):active {
+  background: rgba(201, 168, 76, 0.18);
 }
 
 .spell-detail-pick:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
 }
 
 .spells-footer {
@@ -1195,6 +1267,17 @@ function goNext() {
 
   .spell-detail-facts {
     grid-template-columns: 1fr;
+  }
+
+  .spell-detail-mask {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .spell-detail-panel {
+    width: 100%;
+    max-height: 92dvh;
+    border-radius: var(--r) var(--r) 0 0;
   }
 
   .spell-row,

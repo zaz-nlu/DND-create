@@ -350,6 +350,10 @@ export const generalFeats = [
     prerequisiteText: '等级 4+',
     summary: '任一属性 +1，获得一个技能熟练，并让一个已熟练技能获得专精。',
     abilityBonus: { options: 'any' },
+    grants: {
+      skillProficiency: { count: 1 },
+      expertise: { count: 1 },
+    },
   },
   {
     id: 'skulker',

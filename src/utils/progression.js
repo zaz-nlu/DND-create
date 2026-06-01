@@ -1,5 +1,25 @@
 import { getGeneralFeatAvailability } from '../data/generalFeats.js'
 
+/**
+ * 为没有手写 progression 的职业（通常是 DM 新建职业）
+ * 按 DnD 2024 标准自动生成一份基础 progression。
+ *
+ * 已有 progression 的职业不受影响。
+ */
+export function buildStandardProgression(classDef) {
+  const subclassLevel = classDef.subclassLevel ?? 3
+  const featLevels = [4, 8, 12, 16, 19]
+  const entries = [
+    { level: 1, choices: [{ id: 'skills', kind: 'skillProficiency', source: 'classSkillChoices' }] },
+    { level: subclassLevel, choices: [{ id: 'subclass', kind: 'subclass' }] },
+    ...featLevels.map(lv => ({ level: lv, choices: [{ id: `feat-${lv}`, kind: 'generalFeat', minLevel: lv }] })),
+  ]
+  // 若 subclassLevel 恰好是 1，避免重复 level 1 条目
+  return entries.filter((e, i, arr) =>
+    arr.findIndex(x => x.level === e.level) === i
+  )
+}
+
 export function getClassTraits(classDef) {
   const armorText = (classDef?.armor ?? []).join(' ')
   const featureText = (classDef?.level1Features ?? [])
@@ -97,6 +117,22 @@ export function getUnmetChoices(character, classDef, raceDef, backgroundDef, abi
           unlockedAt: req.unlockedAt,
           isMet: canSelect,
           reason: reasons.join('，'),
+        }
+      }
+
+      case 'expertise': {
+        const chosen = Array.isArray(classChoices[req.id]) ? classChoices[req.id] : []
+        const needed = req.count ?? 1
+        const isMet = chosen.length >= needed
+        return {
+          id: req.id,
+          kind: req.kind,
+          label: `${req.unlockedAt}级专精`,
+          unlockedAt: req.unlockedAt,
+          isMet,
+          reason: isMet ? '' : `还需选择 ${needed - chosen.length} 项专精技能`,
+          count: needed,
+          pool: req.pool ?? null,
         }
       }
 
