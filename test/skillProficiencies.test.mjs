@@ -8,7 +8,7 @@
 const SKILL_ABILITY = {
   '运动': '力量',
   '体操': '敏捷', '巧手': '敏捷', '隐匿': '敏捷',
-  '奥秘': '智力', '历史': '智力', '调查': '智力', '侦查': '智力', '自然': '智力', '宗教': '智力',
+  '奥秘': '智力', '历史': '智力', '调查': '智力', '自然': '智力', '宗教': '智力',
   '驯兽': '感知', '洞悉': '感知', '医学': '感知', '察觉': '感知', '求生': '感知',
   '欺瞒': '魅力', '威吓': '魅力', '表演': '魅力', '游说': '魅力',
 }
@@ -35,8 +35,13 @@ function getSkillMap(character, { selectedClass, selectedBackground } = {}) {
   const classSkills = character.class?.choices?.skills
   if (Array.isArray(classSkills)) for (const s of classSkills) proficientSet.add(s)
 
-  const raceSkill = character.race?.choices?.skillProficiency
-  if (raceSkill) proficientSet.add(raceSkill)
+  const raceSkillArr = character.race?.choices?.skillProficiencies
+  if (Array.isArray(raceSkillArr)) {
+    for (const s of raceSkillArr) if (s) proficientSet.add(s)
+  } else {
+    const raceSkill = character.race?.choices?.skillProficiency
+    if (raceSkill) proficientSet.add(raceSkill)
+  }
 
   const skilledSkills = character.race?.choices?.skilledSkills
   if (Array.isArray(skilledSkills)) for (const s of skilledSkills) proficientSet.add(s)
@@ -268,6 +273,22 @@ section('多来源熟练不叠加（multiplier 最多 × 2）')
   const bg = { skills: ['历史'] }
   const map = getSkillMap(char, { selectedBackground: bg })
   assert(skill(map, '历史').multiplier === 1, '历史 三来源不叠加，multiplier = 1')
+}
+
+// ── 测试 9b：新格式数组 skillProficiencies 多来源也不叠加 ────────────────────
+
+section('新格式数组 skillProficiencies 多来源不叠加')
+{
+  const char = makeChar({
+    level: 4,
+    race: { id: 'elf', choices: { skillProficiencies: ['察觉'] } },
+    class: { id: 'wizard', level: 4, choices: { skills: ['察觉'] } },
+  })
+  const bg = { skills: ['察觉'] }
+  const map = getSkillMap(char, { selectedBackground: bg })
+  assert(skill(map, '察觉').proficient === true, '察觉 熟练 = true')
+  assert(skill(map, '察觉').expert === false, '察觉 三来源（含种族数组）仍非专精')
+  assert(skill(map, '察觉').multiplier === 1, '察觉 multiplier = 1（不叠加成2）')
 }
 
 // ── 测试 10：法师学者专精（受 pool 限制的职业专精）──────────────────────────

@@ -8,6 +8,10 @@
       <button class="btn-cancel" @click="$emit('cancel')">取消</button>
     </div>
 
+    <ul v-if="errors.length" class="form-errors">
+      <li v-for="e in errors" :key="e">{{ e }}</li>
+    </ul>
+
     <!-- 基础信息 -->
     <section class="form-section">
       <h3>📝 基础信息</h3>
@@ -390,7 +394,31 @@ async function uploadImg(e) {
   }
 }
 
+const errors = ref([])
+
+function validate() {
+  const errs = []
+  if (!f.id?.trim())   errs.push('ID 不能为空')
+  if (!f.name?.trim()) errs.push('名称（中文）不能为空')
+  if (!f.nameEn?.trim()) errs.push('名称（英文）不能为空')
+  if (!f.hitDie)       errs.push('必须选择生命骰')
+  if (!Array.isArray(f.saves) || f.saves.length < 2 || f.saves.some(s => !s))
+    errs.push('必须选择 2 项豁免属性')
+  if (!Array.isArray(f.skillChoices?.options) || f.skillChoices.options.length === 0)
+    errs.push('职业技能候选池不能为空（玩家无法选择技能）')
+  if ((f.skillChoices?.count ?? 0) < 1)
+    errs.push('可选技能数量至少为 1')
+  if (f.skillChoices?.count > f.skillChoices?.options?.length)
+    errs.push(`可选技能数量（${f.skillChoices.count}）不能超过候选池数量（${f.skillChoices.options.length}）`)
+  // 子职业有未填 ID 或名称的
+  const badSub = (f.subclasses ?? []).find(s => !s.id?.trim() || !s.name?.trim())
+  if (badSub) errs.push('有子职业未填写 ID 或名称（中文）')
+  return errs
+}
+
 function save() {
+  errors.value = validate()
+  if (errors.value.length) return
   const data = JSON.parse(JSON.stringify(f))
   data.level1Features = (data.allFeatures || [])
     .filter(feat => (feat.level ?? 1) === 1)
@@ -569,4 +597,23 @@ function save() {
 .upload-status { font-size: 0.78rem; color: var(--text-muted, #9A8868); font-style: italic; }
 .upload-err    { font-size: 0.78rem; color: #C07060; font-style: italic; }
 .upload-hint   { font-size: 0.72rem; color: var(--text-muted, #9A8868); margin: 0; }
+
+.form-errors {
+  margin: 0 24px 12px;
+  padding: 10px 16px;
+  background: rgba(180, 60, 40, 0.12);
+  border: 1px solid rgba(180, 60, 40, 0.35);
+  border-radius: 4px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.form-errors li {
+  color: #D08060;
+  font-size: 0.82rem;
+  font-family: var(--font-title, 'Cinzel', serif);
+  letter-spacing: 0.05em;
+}
+.form-errors li::before { content: '✕  '; opacity: 0.7; }
 </style>

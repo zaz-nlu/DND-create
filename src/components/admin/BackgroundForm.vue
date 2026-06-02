@@ -8,6 +8,10 @@
       <button class="btn-cancel" @click="$emit('cancel')">取消</button>
     </div>
 
+    <ul v-if="errors.length" class="form-errors">
+      <li v-for="e in errors" :key="e">{{ e }}</li>
+    </ul>
+
     <!-- 基础信息 -->
     <section class="form-section">
       <h3>📝 基础信息</h3>
@@ -86,7 +90,7 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import TagInput from './TagInput.vue'
 import Field from './Field.vue'
 
@@ -116,7 +120,49 @@ if (!f.equipment)    f.equipment = { a: '', b: '50 GP' }
 if (!f.skills)       f.skills = []
 if (!f.tools)        f.tools = []
 
-function save() { emit('save', JSON.parse(JSON.stringify(f))) }
+const errors = ref([])
+
+function validate() {
+  const errs = []
+  if (!f.id?.trim())   errs.push('ID 不能为空')
+  if (!f.name?.trim()) errs.push('名称（中文）不能为空')
+  if (!Array.isArray(f.abilityScores) || f.abilityScores.length !== 3 || f.abilityScores.some(a => !a))
+    errs.push('必须选择 3 个可加成属性')
+  if (new Set(f.abilityScores).size !== 3)
+    errs.push('3 个可加成属性不能重复')
+  if (!f.feat?.nameEn?.trim()) errs.push('起源专长英文名不能为空（用于系统匹配）')
+  if (!Array.isArray(f.skills) || f.skills.length < 1) errs.push('至少填写 1 个技能熟练')
+  return errs
+}
+
+function save() {
+  errors.value = validate()
+  if (errors.value.length) return
+  emit('save', JSON.parse(JSON.stringify(f)))
+}
 </script>
 
 <style scoped src="./form.css" />
+<style scoped>
+.form-errors {
+  margin: 0 24px 12px;
+  padding: 10px 16px;
+  background: rgba(180, 60, 40, 0.12);
+  border: 1px solid rgba(180, 60, 40, 0.35);
+  border-radius: 4px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.form-errors li {
+  color: #D08060;
+  font-size: 0.82rem;
+  font-family: var(--font-title, 'Cinzel', serif);
+  letter-spacing: 0.05em;
+}
+.form-errors li::before {
+  content: '✕  ';
+  opacity: 0.7;
+}
+</style>

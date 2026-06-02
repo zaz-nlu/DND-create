@@ -277,13 +277,42 @@ const hardcodedBackgrounds = [
 export { hardcodedBackgrounds }
 export const backgrounds = reactive([...hardcodedBackgrounds])
 
+function normalizeBackground(bg) {
+  return {
+    color: '#888888',
+    lore: '',
+    fullLore: '',
+    abilityScores: ['力量', '敏捷', '魅力'],
+    feat: { name: '', nameEn: '' },
+    skills: [],
+    tools: [],
+    equipment: { a: '', b: '50 GP' },
+    ...bg,
+    feat: {
+      name: '',
+      nameEn: '',
+      ...(bg.feat ?? {}),
+    },
+    abilityScores: Array.isArray(bg.abilityScores) && bg.abilityScores.length === 3
+      ? bg.abilityScores
+      : ['力量', '敏捷', '魅力'],
+    skills: Array.isArray(bg.skills) ? bg.skills : [],
+    tools: Array.isArray(bg.tools) ? bg.tools : [],
+    equipment: {
+      a: '',
+      b: '50 GP',
+      ...(bg.equipment ?? {}),
+    },
+  }
+}
+
 export function applyBackgroundOverrides(overrides) {
   for (const override of overrides) {
     const idx = backgrounds.findIndex(b => b.id === override.id)
     if (idx >= 0) {
-      backgrounds[idx] = { ...backgrounds[idx], ...override }
+      backgrounds[idx] = normalizeBackground({ ...backgrounds[idx], ...override })
     } else {
-      backgrounds.push(override)
+      backgrounds.push(normalizeBackground(override))
     }
   }
 }

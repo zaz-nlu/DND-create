@@ -8,6 +8,10 @@
       <button class="btn-cancel" @click="$emit('cancel')">取消</button>
     </div>
 
+    <ul v-if="errors.length" class="form-errors">
+      <li v-for="e in errors" :key="e">{{ e }}</li>
+    </ul>
+
     <!-- 基础信息 -->
     <section class="form-section">
       <h3>📝 基础信息</h3>
@@ -369,7 +373,28 @@ async function uploadImg(e) {
   }
 }
 
-function save() { emit('save', JSON.parse(JSON.stringify(f))) }
+const errors = ref([])
+
+function validate() {
+  const errs = []
+  if (!f.id?.trim())   errs.push('ID 不能为空')
+  if (!f.name?.trim()) errs.push('名称（中文）不能为空')
+  if (!f.nameEn?.trim()) errs.push('名称（英文）不能为空')
+  if (!f.speed || f.speed <= 0) errs.push('移动速度必须大于 0')
+  if (!Array.isArray(f.mechanics?.languages) || f.mechanics.languages.length === 0)
+    errs.push('至少填写 1 种语言（通用语）')
+  // raceSpells 戏法/法术不能有空 baseId
+  const badCantrip = (f.raceSpells?.cantrips ?? []).some(c => !c.baseId?.trim())
+  const badLeveled = (f.raceSpells?.leveled  ?? []).some(c => !c.baseId?.trim())
+  if (badCantrip || badLeveled) errs.push('种族法术中有未填写法术名的条目，请删除或填写完整')
+  return errs
+}
+
+function save() {
+  errors.value = validate()
+  if (errors.value.length) return
+  emit('save', JSON.parse(JSON.stringify(f)))
+}
 </script>
 
 <style scoped src="./form.css" />
@@ -498,4 +523,23 @@ function save() { emit('save', JSON.parse(JSON.stringify(f))) }
   letter-spacing: 0.05em; text-transform: none;
   font-family: var(--font-body, 'Crimson Pro', serif);
 }
+
+.form-errors {
+  margin: 0 24px 12px;
+  padding: 10px 16px;
+  background: rgba(180, 60, 40, 0.12);
+  border: 1px solid rgba(180, 60, 40, 0.35);
+  border-radius: 4px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.form-errors li {
+  color: #D08060;
+  font-size: 0.82rem;
+  font-family: var(--font-title, 'Cinzel', serif);
+  letter-spacing: 0.05em;
+}
+.form-errors li::before { content: '✕  '; opacity: 0.7; }
 </style>

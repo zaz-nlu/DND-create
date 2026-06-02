@@ -732,20 +732,74 @@ const hardcodedRaces = [
 export { hardcodedRaces }
 export const races = reactive([...hardcodedRaces])
 
+function normalizeRace(race, base = {}) {
+  const merged = { ...race }
+
+  // 顶层标量字段兜底
+  merged.type     = merged.type     || base.type     || '类人'
+  merged.size     = merged.size     || base.size     || '中型'
+  merged.speed    = Number(merged.speed) || base.speed    || 30
+  merged.lifespan = Number(merged.lifespan) || base.lifespan || 100
+  merged.lore     = merged.lore     ?? base.lore     ?? ''
+  merged.fullLore = merged.fullLore ?? base.fullLore ?? ''
+  merged.color    = merged.color    || base.color    || '#888888'
+
+  // 数组字段兜底
+  merged.sizeOptions = Array.isArray(merged.sizeOptions) ? merged.sizeOptions : (base.sizeOptions ?? [])
+  merged.traits      = Array.isArray(merged.traits) && merged.traits.length
+    ? merged.traits
+    : (base.traits ?? [])
+
+  // mechanics 嵌套对象
+  const baseMech = base.mechanics ?? {}
+  const overMech = merged.mechanics ?? {}
+  merged.mechanics = {
+    speed:                Number(overMech.speed)    || baseMech.speed    || merged.speed || 30,
+    darkvision:           Number(overMech.darkvision)           ?? baseMech.darkvision           ?? 0,
+    hpBonusPerLevel:      Number(overMech.hpBonusPerLevel)      ?? baseMech.hpBonusPerLevel      ?? 0,
+    damageResistances:    Array.isArray(overMech.damageResistances)    ? overMech.damageResistances    : (baseMech.damageResistances    ?? []),
+    savingThrowAdvantages:Array.isArray(overMech.savingThrowAdvantages)? overMech.savingThrowAdvantages: (baseMech.savingThrowAdvantages ?? []),
+    cantrips:             Array.isArray(overMech.cantrips)             ? overMech.cantrips             : (baseMech.cantrips             ?? []),
+    languages:            Array.isArray(overMech.languages) && overMech.languages.length
+      ? overMech.languages
+      : (baseMech.languages ?? ['通用语']),
+  }
+
+  // 种族法术
+  const baseSpells = base.raceSpells ?? {}
+  const overSpells = merged.raceSpells ?? {}
+  merged.raceSpells = {
+    cantrips: Array.isArray(overSpells.cantrips) ? overSpells.cantrips : (baseSpells.cantrips ?? []),
+    leveled:  Array.isArray(overSpells.leveled)  ? overSpells.leveled  : (baseSpells.leveled  ?? []),
+  }
+
+  merged.spellcastingAbilityChoice = Array.isArray(merged.spellcastingAbilityChoice)
+    ? merged.spellcastingAbilityChoice
+    : (base.spellcastingAbilityChoice ?? [])
+
+  // skillProficiency 保持 null 或完整对象
+  if (merged.skillProficiency && typeof merged.skillProficiency === 'object') {
+    merged.skillProficiency = {
+      choose:  Number(merged.skillProficiency.choose)  || 1,
+      options: Array.isArray(merged.skillProficiency.options) ? merged.skillProficiency.options : [],
+    }
+  } else if (!merged.skillProficiency) {
+    merged.skillProficiency = base.skillProficiency ?? null
+  }
+
+  return merged
+}
+
 export function applyRaceOverrides(overrides) {
   for (const override of overrides) {
     const idx = races.findIndex(r => r.id === override.id)
     const base = idx >= 0 ? races[idx] : {}
     const finalImage = override.image || raceImages[override.id] || base.image || null
-    const merged = { ...base, ...override, image: finalImage }
-    // 种族特性若被清空则回退到内置数据
-    if (!merged.traits?.length && base.traits?.length) {
-      merged.traits = base.traits
-    }
+    const normalized = normalizeRace({ ...base, ...override, image: finalImage }, base)
     if (idx >= 0) {
-      races[idx] = merged
+      races[idx] = normalized
     } else {
-      races.push(merged)
+      races.push(normalized)
     }
   }
 }

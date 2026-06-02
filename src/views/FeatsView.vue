@@ -224,15 +224,24 @@ const classSkillSlot = computed(() =>
     : null
 )
 const classSkillCount = computed(() => selectedClass.value?.skillChoices?.count ?? 0)
-const classSkillOptions = computed(() => {
-  const options = selectedClass.value?.skillChoices?.options ?? []
-  const bgSkills = selectedBackground.value?.skills ?? []
-  const raceSkill = character.race.choices?.skillProficiency ?? null
-  return options.filter(skill => !bgSkills.includes(skill) && skill !== raceSkill)
-})
 const classSkillChoices = computed(() => {
   const raw = character.class.choices?.skills
   return Array.isArray(raw) ? raw : []
+})
+// 已通过「职业技能选择以外的来源」熟练的技能（背景/种族单项/种族数组/Skilled/专长授予）
+// 复用单一数据源 skillMap，自动覆盖所有现有及未来的熟练来源，避免逐一手拼遗漏。
+const skillsProficientElsewhere = computed(() => {
+  const fromClassChoice = new Set(classSkillChoices.value)
+  return new Set(
+    skillMap.value
+      .filter(s => s.proficient && !fromClassChoice.has(s.skill))
+      .map(s => s.skill)
+  )
+})
+// 职业技能可选列表：排除已从其他来源熟练的技能（专精 ≠ 双熟练，重复熟练会浪费名额）
+const classSkillOptions = computed(() => {
+  const options = selectedClass.value?.skillChoices?.options ?? []
+  return options.filter(skill => !skillsProficientElsewhere.value.has(skill))
 })
 const isClassSkillValid = computed(() => {
   if (!classSkillSlot.value) return true
@@ -727,8 +736,8 @@ function goNext() {
             <template v-else-if="step.kind === 'class-skills'">
               <p class="step-desc">
                 从职业技能列表中选择 {{ classSkillCount }} 项获得熟练。
-                <template v-if="selectedBackground?.skills?.length">
-                  <span style="color:var(--text-dim);font-size:12px">已被背景覆盖的技能（{{ selectedBackground.skills.join('、') }}）已从列表移除。</span>
+                <template v-if="skillsProficientElsewhere.size">
+                  <span style="color:var(--text-dim);font-size:12px">已从背景/种族/专长获得熟练的技能（{{ [...skillsProficientElsewhere].join('、') }}）已从列表移除——重复熟练不会叠加成专精。</span>
                 </template>
               </p>
               <div class="step-chip-grid">
