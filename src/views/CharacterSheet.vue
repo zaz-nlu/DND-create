@@ -236,6 +236,14 @@ function startNewCharacter() {
       <button class="sheet-spellbook-btn" type="button" @click="showSpellBook = true">
         📖 法术图鉴
       </button>
+      <button
+        v-if="selectedClass?.id === 'wizard'"
+        class="sheet-combat-spellbook-btn"
+        type="button"
+        @click="router.push('/spellbook')"
+      >
+        ✦ 法师实战书
+      </button>
     </div>
 
     <SpellBookModal :show="showSpellBook" @close="showSpellBook = false" />
@@ -1081,6 +1089,25 @@ function startNewCharacter() {
 .sheet-spellbook-btn:hover {
   background: rgba(120, 90, 200, 0.4);
   border-color: rgba(180, 150, 255, 0.6);
+}
+
+.sheet-combat-spellbook-btn {
+  font-family: var(--font-title);
+  font-size: 12px;
+  letter-spacing: 0;
+  font-weight: 700;
+  color: #d8ece7;
+  background: rgba(70, 132, 124, 0.22);
+  border: 1px solid rgba(121, 182, 173, 0.45);
+  padding: 0 20px;
+  border-radius: var(--r);
+  min-height: 44px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.sheet-combat-spellbook-btn:hover {
+  background: rgba(70, 132, 124, 0.36);
+  border-color: rgba(142, 211, 201, 0.7);
 }
 
 .sheet-new-btn {

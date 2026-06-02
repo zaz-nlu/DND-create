@@ -13,6 +13,7 @@ import HpSetup          from '../views/HpSetup.vue'
 import EquipmentView    from '../views/EquipmentView.vue'
 import CharacterSheet   from '../views/CharacterSheet.vue'
 import PrintSheet       from '../views/PrintSheet.vue'
+import SpellbookView    from '../views/SpellbookView.vue'
 
 export default createRouter({
   history: createWebHistory(),
@@ -29,6 +30,7 @@ export default createRouter({
     { path: '/equipment',   component: EquipmentView    },
     { path: '/hp',          component: HpSetup          },
     { path: '/sheet',       component: CharacterSheet   },
+    { path: '/spellbook',   component: SpellbookView    },
     { path: '/print',       component: PrintSheet       },
     { path: '/admin',       component: AdminView        },
   ],
