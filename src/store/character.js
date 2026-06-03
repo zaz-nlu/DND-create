@@ -64,6 +64,7 @@ function createDefaultCharacter(id = createDraftId()) {
       cantrips: [],
       slotsUsed: {},
       prepared: [],
+      savantGrants: {},
     },
     inventory: {
       gold: 0,
@@ -141,6 +142,7 @@ function normalizeDraft(raw) {
       cantrips: Array.isArray(raw?.spells?.cantrips) ? raw.spells.cantrips : [],
       slotsUsed: raw?.spells?.slotsUsed && typeof raw.spells.slotsUsed === 'object' ? raw.spells.slotsUsed : {},
       prepared: Array.isArray(raw?.spells?.prepared) ? raw.spells.prepared : [],
+      savantGrants: raw?.spells?.savantGrants && typeof raw.spells.savantGrants === 'object' ? raw.spells.savantGrants : {},
     },
     inventory: {
       gold: Number.isFinite(raw?.inventory?.gold) ? raw.inventory.gold : 0,
@@ -277,6 +279,7 @@ export function setClass(classId) {
     character.spells.cantrips = []
     character.spells.prepared = []
     character.spells.slotsUsed = {}
+    character.spells.savantGrants = {}
   }
   character.class.id = classId
   character.class.level = character.level
@@ -284,6 +287,9 @@ export function setClass(classId) {
 }
 
 export function setSubclass(subclassId) {
+  if (character.class.subclassId !== subclassId) {
+    character.spells.savantGrants = {}
+  }
   character.class.subclassId = subclassId
   touchDraft()
 }
@@ -384,6 +390,17 @@ export function togglePreparedSpell(spellId) {
     character.spells.prepared.splice(idx, 1)
   } else {
     character.spells.prepared.push(spellId)
+  }
+  touchDraft()
+}
+
+// key = savant 槽位标识，如 'lv3-0'（3级第0道）/ 'lv5-0'（5级第0道）
+// 每个 key 存一个 spellId；调用此函数传 null 则清空该槽
+export function setSavantGrant(key, spellId) {
+  if (spellId === null) {
+    delete character.spells.savantGrants[key]
+  } else {
+    character.spells.savantGrants[key] = spellId
   }
   touchDraft()
 }

@@ -484,6 +484,19 @@ export const builtinClasses = [
         color: '#5F7EA8',
         tagline: '保卫同伴，放逐仇敌',
         desc: '你对魔法的研究集中在阻挡、驱逐和保护的法术上，擅长结束有害影响、消除邪恶影响并保护弱者。',
+        savantSchool: '防护',
+        // 3级：免费选2道≤2环；之后每解锁新环阶：免费1道当前最高环阶
+        // savantGrants 描述每个角色等级对应的赠送规则
+        savantGrants: [
+          { charLevel: 3,  count: 2, maxSpellLevel: 2 },
+          { charLevel: 5,  count: 1, maxSpellLevel: 3 },
+          { charLevel: 7,  count: 1, maxSpellLevel: 4 },
+          { charLevel: 9,  count: 1, maxSpellLevel: 5 },
+          { charLevel: 11, count: 1, maxSpellLevel: 6 },
+          { charLevel: 13, count: 1, maxSpellLevel: 7 },
+          { charLevel: 15, count: 1, maxSpellLevel: 8 },
+          { charLevel: 17, count: 1, maxSpellLevel: 9 },
+        ],
         features: [
           { level: 3, name: '防护学者', nameEn: 'Abjuration Savant', desc: '从法师法术列表中选择两道不高于二环的防护学派法术，免费加入法术书。此后每当获得新环阶法术位时，也可免费加入一道当前可用环阶的防护学派法师法术。' },
           { level: 3, name: '奥术守御', nameEn: 'Arcane Ward', desc: '消耗法术位施展防护学派法术时，创建持续到长休的魔法结界。结界最大生命值等于法师等级两倍加智力调整值。之后施展防护法术或以附赠动作消耗法术位可恢复结界生命值。' },
@@ -499,6 +512,17 @@ export const builtinClasses = [
         color: '#6D68A8',
         tagline: '探究多元宇宙之秘',
         desc: '你致力于揭开空间、时间与意识的面纱，寻求对过去、现在和未来更清晰的了解。',
+        savantSchool: '预言',
+        savantGrants: [
+          { charLevel: 3,  count: 2, maxSpellLevel: 2 },
+          { charLevel: 5,  count: 1, maxSpellLevel: 3 },
+          { charLevel: 7,  count: 1, maxSpellLevel: 4 },
+          { charLevel: 9,  count: 1, maxSpellLevel: 5 },
+          { charLevel: 11, count: 1, maxSpellLevel: 6 },
+          { charLevel: 13, count: 1, maxSpellLevel: 7 },
+          { charLevel: 15, count: 1, maxSpellLevel: 8 },
+          { charLevel: 17, count: 1, maxSpellLevel: 9 },
+        ],
         features: [
           { level: 3, name: '预言学者', nameEn: 'Divination Savant', desc: '从法师法术列表中选择两道不高于二环的预言学派法术，免费加入法术书。此后每当获得新环阶法术位时，也可免费加入一道当前可用环阶的预言学派法师法术。' },
           { level: 3, name: '预兆', nameEn: 'Portent', desc: '每当完成长休时，掷2次d20并记录结果。你能用其中一个预言骰替换任何你或一个可见生物进行的d20挑战。每个预言骰只能使用一次。' },
@@ -514,6 +538,17 @@ export const builtinClasses = [
         color: '#A85D45',
         tagline: '创造炸裂的元素特效',
         desc: '你专注于研习以魔力创造威力惊人的元素力量，擅长从远处轰击敌人并保护同伴免受波及。',
+        savantSchool: '塑能',
+        savantGrants: [
+          { charLevel: 3,  count: 2, maxSpellLevel: 2 },
+          { charLevel: 5,  count: 1, maxSpellLevel: 3 },
+          { charLevel: 7,  count: 1, maxSpellLevel: 4 },
+          { charLevel: 9,  count: 1, maxSpellLevel: 5 },
+          { charLevel: 11, count: 1, maxSpellLevel: 6 },
+          { charLevel: 13, count: 1, maxSpellLevel: 7 },
+          { charLevel: 15, count: 1, maxSpellLevel: 8 },
+          { charLevel: 17, count: 1, maxSpellLevel: 9 },
+        ],
         features: [
           { level: 3, name: '塑能学者', nameEn: 'Evocation Savant', desc: '从法师法术列表中选择两道不高于二环的塑能学派法术，免费加入法术书。此后每当获得新环阶法术位时，也可免费加入一道当前可用环阶的塑能学派法师法术。' },
           { level: 3, name: '强力戏法', nameEn: 'Potent Cantrip', desc: '当你施展造成伤害的戏法而没有命中，或目标对抗你戏法的豁免成功时，目标仍受到一半伤害，但不受该戏法其他效应影响。' },
@@ -529,6 +564,17 @@ export const builtinClasses = [
         color: '#7B5AA8',
         tagline: '编织精妙的欺瞒法术',
         desc: '你专精于扰乱感官、迷惑心灵的魔法，让创造出的幻象足够以假乱真。',
+        savantSchool: '幻术',
+        savantGrants: [
+          { charLevel: 3,  count: 2, maxSpellLevel: 2 },
+          { charLevel: 5,  count: 1, maxSpellLevel: 3 },
+          { charLevel: 7,  count: 1, maxSpellLevel: 4 },
+          { charLevel: 9,  count: 1, maxSpellLevel: 5 },
+          { charLevel: 11, count: 1, maxSpellLevel: 6 },
+          { charLevel: 13, count: 1, maxSpellLevel: 7 },
+          { charLevel: 15, count: 1, maxSpellLevel: 8 },
+          { charLevel: 17, count: 1, maxSpellLevel: 9 },
+        ],
         features: [
           { level: 3, name: '幻术学者', nameEn: 'Illusion Savant', desc: '从法师法术列表中选择两道不高于二环的幻术学派法术，免费加入法术书。此后每当获得新环阶法术位时，也可免费加入一道当前可用环阶的幻术学派法师法术。' },
           { level: 3, name: '强化幻术', nameEn: 'Improved Illusions', desc: '你施展幻术学派法术时无需语言成分，且射程至少10尺的幻术学派法术射程增加60尺。你已知次级幻影戏法；若已知，则改学另一道法师戏法。施展次级幻影时可同时创造声音和影像，并能以附赠动作施展。' },

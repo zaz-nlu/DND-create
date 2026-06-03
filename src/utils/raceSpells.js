@@ -80,13 +80,14 @@ export function getRaceSpellGrants(character, selectedRace) {
   }
 
   for (const entry of (raceSpells.leveled ?? [])) {
-    if (entry.level <= charLevel) {
+    const minLv = entry.minCharLevel ?? entry.level ?? 1
+    if (minLv <= charLevel) {
       const spell = findSpellByBaseId(entry.baseId)
       leveledSpells.push({
         baseId: entry.baseId,
         name: spell?.name ?? entry.baseId,
         nameEn: spell?.nameEn ?? entry.baseId,
-        level: entry.level,
+        level: entry.spellLevel ?? spell?.level ?? entry.level ?? 1,
         source: selectedRace.name,
       })
     }
@@ -127,13 +128,14 @@ export function getRaceSpellGrants(character, selectedRace) {
 
     // 血系按等级法术
     for (const entry of (grants.leveled ?? [])) {
-      if (entry.level <= charLevel) {
+      const minLv = entry.minCharLevel ?? entry.level ?? 1
+      if (minLv <= charLevel) {
         const spell = findSpellByBaseId(entry.baseId)
         leveledSpells.push({
           baseId: entry.baseId,
           name: spell?.name ?? entry.baseId,
           nameEn: spell?.nameEn ?? entry.baseId,
-          level: entry.level,
+          level: entry.spellLevel ?? spell?.level ?? entry.level ?? 1,
           source: sourceLabel,
         })
       }

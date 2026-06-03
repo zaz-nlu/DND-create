@@ -6,7 +6,7 @@ import { classes } from '../data/classes.js'
 import { races } from '../data/races.js'
 import { magicSchools, spellPreparationRules, spellRuleSections } from '../data/spellRules.js'
 import { getSpellListById, getSpellsByList, searchSpells } from '../data/spells.js'
-import { character, toggleCantripSpell, togglePreparedSpell } from '../store/character.js'
+import { character, setSavantGrant, toggleCantripSpell, togglePreparedSpell } from '../store/character.js'
 import { getRaceSpellGrants } from '../utils/raceSpells.js'
 import { findSpellByBaseId } from '../data/spells.js'
 import StepNav from './StepNav.vue'
@@ -174,12 +174,118 @@ const currentPreparationRule = computed(() =>
   spellPreparationRules.find(rule => rule.classId === currentClass.value?.id) ?? null
 )
 
+// ── Savant 学者法术赠送 ────────────────────────────────────────────────
+// 当前子职定义（含 savantGrants / savantSchool 字段）
+const savantSubclass = computed(() => {
+  const subclassId = character.class.subclassId
+  if (!subclassId) return null
+  return currentClass.value?.subclasses?.find(item => item.id === subclassId && item.savantSchool) ?? null
+})
+
+// 当前等级累计解锁的所有赠送槽位（保留历史槽）
+// key 格式: 'lv{charLevel}-{slotIndex}'，如 'lv3-0', 'lv3-1', 'lv5-0'
+const savantSlots = computed(() => {
+  const sub = savantSubclass.value
+  if (!sub) return []
+  const slots = []
+  for (const grant of sub.savantGrants) {
+    if (grant.charLevel > character.level) break
+    for (let i = 0; i < grant.count; i++) {
+      slots.push({
+        key: `lv${grant.charLevel}-${i}`,
+        charLevel: grant.charLevel,
+        maxSpellLevel: grant.maxSpellLevel,
+        school: sub.savantSchool,
+        chosen: character.spells.savantGrants[`lv${grant.charLevel}-${i}`] ?? null,
+      })
+    }
+  }
+  return slots
+})
+
+const savantSlotsTotal = computed(() => savantSlots.value.length)
+const savantSlotsFilled = computed(() => savantSlots.value.filter(s => s.chosen !== null).length)
+const hasSavant = computed(() => savantSlotsTotal.value > 0)
+
+// 当前正在编辑的 savant 槽
+const activeSavantSlotKey = ref(null)
+const activeSavantSlot = computed(() =>
+  savantSlots.value.find(s => s.key === activeSavantSlotKey.value) ?? null
+)
+
+// 已被其他槽占用的法术 id（同一法术只能赠一次）
+const savantPickedIds = computed(() => {
+  const ids = new Set()
+  for (const s of savantSlots.value) {
+    if (s.chosen) ids.add(s.chosen)
+  }
+  return ids
+})
+
+// savant 学派法术列表（按当前激活槽的 maxSpellLevel 过滤）
+const savantVisibleSpells = computed(() => {
+  const slot = activeSavantSlot.value
+  if (!slot || !spellList.value) return []
+  return getSpellsByList(spellList.value.id)
+    .filter(spell =>
+      spell.level >= 1 &&
+      spell.level <= slot.maxSpellLevel &&
+      spell.school === slot.school
+    )
+    .sort((a, b) => a.level - b.level || spellName(a).localeCompare(spellName(b), 'zh-Hans-CN'))
+})
+
+function openSavantSlot(key) {
+  activeSavantSlotKey.value = key
+  query.value = ''
+}
+
+function pickSavantSpell(spell) {
+  const key = activeSavantSlotKey.value
+  if (!key) return
+  const currentChosen = character.spells.savantGrants[key]
+  if (currentChosen === spell.id) {
+    setSavantGrant(key, null)
+  } else {
+    setSavantGrant(key, spell.id)
+  }
+}
+
+function isSavantSelected(spell) {
+  const key = activeSavantSlotKey.value
+  if (!key) return false
+  return character.spells.savantGrants[key] === spell.id
+}
+
+function isSavantDisabled(spell) {
+  const key = activeSavantSlotKey.value
+  if (!key) return false
+  if (isSavantSelected(spell)) return false
+  return savantPickedIds.value.has(spell.id)
+}
+
+// 所有已赠法术的完整对象列表（供法术书、角色卡展示用）
+const allSavantSpells = computed(() => {
+  const { getSpellById } = (() => {
+    const spellMap = spellList.value
+      ? getSpellsByList(spellList.value.id).reduce((m, s) => { m[s.id] = s; return m }, {})
+      : {}
+    return { getSpellById: id => spellMap[id] ?? null }
+  })()
+  return savantSlots.value
+    .map(s => s.chosen ? getSpellById(s.chosen) : null)
+    .filter(Boolean)
+})
+
+// ─────────────────────────────────────────────────────────────────────────
+
 const isReady = computed(() => {
   if (!hasSpellcasting.value) return true
   if (!spellList.value) return true
   const cantripsOk = cantripLimit.value === 0 || selectedCantrips.value.length === cantripLimit.value
   const preparedOk = preparedLimit.value === 0 || selectedPrepared.value.length === preparedLimit.value
-  return cantripsOk && preparedOk
+  const savantOk = !hasSavant.value || savantSlotsFilled.value === savantSlotsTotal.value
+  return cantripsOk && preparedOk && savantOk
 })
 
 const footerHint = computed(() => {
@@ -190,6 +296,10 @@ const footerHint = computed(() => {
   }
   if (preparedLimit.value > 0 && selectedPrepared.value.length < preparedLimit.value) {
     return `还需选择 ${preparedLimit.value - selectedPrepared.value.length} 个法术`
+  }
+  if (hasSavant.value && savantSlotsFilled.value < savantSlotsTotal.value) {
+    const sub = savantSubclass.value
+    return `还需选择 ${savantSlotsTotal.value - savantSlotsFilled.value} 道${sub?.savantSchool ?? ''}学派赠送法术`
   }
   return '法术选择完成'
 })
@@ -352,6 +462,75 @@ function goNext() {
           <span>总是准备</span>
           <div>
             <em v-for="spell in alwaysPrepared" :key="spell">{{ spell }}</em>
+          </div>
+        </div>
+
+        <!-- 学者法术赠送（Savant Spells） -->
+        <div v-if="hasSavant" class="savant-panel">
+          <div class="savant-header">
+            <span class="savant-label">学者赠送法术</span>
+            <em class="savant-count">{{ savantSlotsFilled }} / {{ savantSlotsTotal }}</em>
+          </div>
+          <p class="savant-desc">
+            作为{{ savantSubclass?.name }}，你可从法师法表免费选取
+            {{ savantSubclass?.savantSchool }}学派法术加入法术书，不占准备数量。
+          </p>
+          <div class="savant-slots">
+            <button
+              v-for="slot in savantSlots"
+              :key="slot.key"
+              :class="['savant-slot', {
+                active: activeSavantSlotKey === slot.key,
+                filled: slot.chosen !== null,
+              }]"
+              type="button"
+              @click="openSavantSlot(slot.key)"
+            >
+              <span class="savant-slot-badge">{{ slot.charLevel }}级·≤{{ slot.maxSpellLevel }}环</span>
+              <strong v-if="slot.chosen">
+                {{ allSavantSpells.find(s => s.id === slot.chosen)?.name ?? slot.chosen }}
+              </strong>
+              <span v-else class="savant-slot-empty">点击选择</span>
+            </button>
+          </div>
+
+          <!-- 激活槽的法术选择列表 -->
+          <div v-if="activeSavantSlot" class="savant-picker">
+            <div class="savant-picker-head">
+              选择 {{ activeSavantSlot.school }} 学派 ≤{{ activeSavantSlot.maxSpellLevel }}环法术
+              <button class="savant-picker-close" type="button" @click="activeSavantSlotKey = null">×</button>
+            </div>
+            <div v-if="savantVisibleSpells.length === 0" class="spells-empty">
+              当前学派暂无录入法术。
+            </div>
+            <div v-else class="savant-picker-list">
+              <article
+                v-for="spell in savantVisibleSpells"
+                :key="spell.id"
+                :class="['spell-row', {
+                  selected: isSavantSelected(spell),
+                  disabled: isSavantDisabled(spell),
+                }]"
+              >
+                <button class="spell-row-main spell-row-open" type="button" @click="openSpellDetail(spell)">
+                  <span class="spell-level">{{ levelLabel(spell.level) }}</span>
+                  <div>
+                    <strong>{{ spell.name }}</strong>
+                    <small>{{ spell.nameEn }}</small>
+                  </div>
+                </button>
+                <button
+                  class="spell-meta"
+                  type="button"
+                  :disabled="isSavantDisabled(spell)"
+                  @click="pickSavantSpell(spell)"
+                >
+                  <span>{{ spell.school }}</span>
+                  <em v-for="flag in spell.special" :key="flag">{{ flag }}</em>
+                  <b>{{ isSavantSelected(spell) ? '已选' : isSavantDisabled(spell) ? '已用' : '赠入' }}</b>
+                </button>
+              </article>
+            </div>
           </div>
         </div>
 
@@ -663,6 +842,134 @@ function goNext() {
   color: var(--gold-light);
   font-size: 12px;
   font-style: normal;
+}
+
+/* ── Savant 学者法术赠送面板 ─────────────────────────── */
+.savant-panel {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(177, 140, 210, 0.28);
+  border-radius: 10px;
+  background: rgba(123, 90, 168, 0.07);
+}
+
+.savant-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.savant-label {
+  font-family: var(--font-title);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: #b994d6;
+  text-transform: uppercase;
+}
+
+.savant-count {
+  font-size: 12px;
+  color: var(--gold-light);
+  font-style: normal;
+  margin-left: auto;
+}
+
+.savant-desc {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.savant-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.savant-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(177, 140, 210, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.savant-slot:hover {
+  border-color: rgba(177, 140, 210, 0.5);
+  background: rgba(177, 140, 210, 0.1);
+}
+
+.savant-slot.active {
+  border-color: #b994d6;
+  background: rgba(177, 140, 210, 0.15);
+}
+
+.savant-slot.filled {
+  border-color: rgba(177, 140, 210, 0.4);
+}
+
+.savant-slot.filled strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.savant-slot-badge {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(177, 140, 210, 0.2);
+  color: #b994d6;
+  font-size: 10px;
+  font-family: var(--font-title);
+  letter-spacing: 0.05em;
+}
+
+.savant-slot-empty {
+  color: var(--text-dim);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.savant-picker {
+  margin-top: 10px;
+  border: 1px solid rgba(177, 140, 210, 0.25);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.savant-picker-head {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(177, 140, 210, 0.12);
+  font-size: 12px;
+  color: #b994d6;
+  font-family: var(--font-title);
+  letter-spacing: 0.05em;
+}
+
+.savant-picker-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.savant-picker-list {
+  max-height: 260px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .spells-browser {

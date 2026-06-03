@@ -67,9 +67,15 @@ export function useFlipBook(containerRef, { pageSelector, onFlip, onFlipStart })
    */
   function flipTo(index, { animated = true } = {}) {
     if (!pageFlip) return
-    if (animated) pageFlip.flip(index)
-    else pageFlip.turnToPage(index)
-    currentPage.value = index
+    if (animated && index > currentPage.value) {
+      // flip() 只支持向前翻，会触发 flip 事件自动同步 currentPage
+      pageFlip.flip(index)
+    } else {
+      // turnToPage 不触发 flip 事件，手动同步
+      pageFlip.turnToPage(index)
+      currentPage.value = index
+      onFlip?.(index)
+    }
   }
 
   function destroy() {

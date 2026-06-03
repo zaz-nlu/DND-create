@@ -13,7 +13,7 @@ import levelSevenImage from '../assets/images/7.png'
 import levelEightImage from '../assets/images/8.png'
 import levelNineImage from '../assets/images/9.png'
 import { classes } from '../data/classes.js'
-import { findSpellByBaseId, findSpellById } from '../data/spells.js'
+import { findSpellByBaseId, findSpellById, getSpellsByList } from '../data/spells.js'
 import { character, setSpellSlotUsed } from '../store/character.js'
 import { getAbilityTotalRows } from '../utils/abilityTotals.js'
 import { useArcaneFlame } from '../composables/useArcaneFlame.js'
@@ -56,9 +56,30 @@ const preparedCantrips = computed(() =>
 const preparedSpells = computed(() =>
   (character.spells.prepared ?? []).map(findSpellById).filter(spell => spell?.listId === 'wizard')
 )
+
+// 学者赠送法术：标记 isSavant:true 便于模板加徽章
+const savantSpells = computed(() => {
+  const grants = character.spells.savantGrants
+  if (!grants || typeof grants !== 'object') return []
+  const wizardSpells = getSpellsByList('wizard')
+  const spellById = id => wizardSpells.find(s => s.id === id) ?? null
+  return Object.values(grants)
+    .filter(Boolean)
+    .map(id => {
+      const spell = spellById(id)
+      return spell ? { ...spell, isSavant: true } : null
+    })
+    .filter(Boolean)
+})
+
 const preparedByLevel = computed(() => {
   const grouped = Object.fromEntries(Array.from({ length: 10 }, (_, level) => [level, []]))
   for (const spell of preparedSpells.value) grouped[spell.level].push(spell)
+  // savant 赠送法术合并进对应环阶（同一法术不重复）
+  const preparedIds = new Set(preparedSpells.value.map(s => s.id))
+  for (const spell of savantSpells.value) {
+    if (!preparedIds.has(spell.id)) grouped[spell.level].push(spell)
+  }
   return grouped
 })
 
@@ -454,18 +475,20 @@ onUnmounted(() => {
                   @click="openSpell(spell)"
                 >
                   <div class="spell-entry-content">
-                    <div class="spell-name-row">
-                      <h2>{{ spell.name }}</h2>
-                      <i>{{ spell.nameEn }}</i>
+                    <div class="spell-line">
+                      <div class="spell-line-name">
+                        <h2>{{ spell.name }}</h2>
+                        <i>{{ spell.nameEn }}</i>
+                      </div>
+                      <div class="spell-line-meta">
+                        <span>{{ spell.school }}</span>
+                        <span v-if="spell.castingTime">{{ spell.castingTime }}</span>
+                        <span v-if="spell.range">{{ spell.range }}</span>
+                        <span v-if="spell.concentration" class="tag-concentration">专注</span>
+                        <span v-if="spell.ritual" class="tag-ritual">仪式</span>
+                        <span v-if="spell.isSavant" class="tag-savant">学者</span>
+                      </div>
                     </div>
-                    <div class="spell-tags">
-                      <span>{{ spell.school }}</span>
-                      <span v-if="spell.castingTime">{{ spell.castingTime }}</span>
-                      <span v-if="spell.range">{{ spell.range }}</span>
-                      <span v-if="spell.concentration" class="tag-concentration">专注</span>
-                      <span v-if="spell.ritual" class="tag-ritual">仪式</span>
-                    </div>
-                    <p>{{ shortDescription(spell) }}</p>
                   </div>
                 </article>
               </div>
@@ -507,20 +530,19 @@ onUnmounted(() => {
         <section class="cast-modal" :style="{ '--ring': schoolRingColor(activeSpell.school) }">
           <button class="close-panel" type="button" title="关闭" @click="activeSpell = null">×</button>
 
-          <svg class="magic-ring" viewBox="0 0 80 80" fill="none" aria-hidden="true">
-            <g class="ring-outer">
-              <circle cx="40" cy="40" r="34" :stroke="schoolRingColor(activeSpell.school)" stroke-width="1.5" stroke-dasharray="8 4"/>
-              <circle cx="40" cy="40" r="29" :stroke="schoolRingColor(activeSpell.school)" stroke-width="0.6"/>
-            </g>
-            <g class="ring-inner">
-              <circle cx="40" cy="40" r="20" :stroke="schoolRingColor(activeSpell.school)" stroke-width="1" stroke-dasharray="5 3"/>
-            </g>
-            <circle cx="40" cy="40" r="9" :fill="schoolRingColor(activeSpell.school)" class="ring-core"/>
-            <circle cx="40" cy="40" r="5" :fill="schoolRingColor(activeSpell.school)"/>
-          </svg>
-
           <h2 class="cast-title">{{ activeSpell.name }}</h2>
           <p class="cast-en">{{ activeSpell.nameEn }}</p>
+          <div class="cast-meta">
+            <span>{{ activeSpell.school }}</span>
+            <span v-if="activeSpell.castingTime">{{ activeSpell.castingTime }}</span>
+            <span v-if="activeSpell.range">{{ activeSpell.range }}</span>
+            <span v-if="activeSpell.duration">{{ activeSpell.duration }}</span>
+            <span v-if="activeSpell.components">{{ activeSpell.components }}</span>
+            <span v-if="activeSpell.concentration" class="tag-concentration">专注</span>
+            <span v-if="activeSpell.ritual" class="tag-ritual">仪式</span>
+          </div>
+
+          <div class="spell-detail-text">{{ activeSpell.desc }}</div>
 
           <div class="cast-controls">
             <template v-if="activeSpell.level === 0">
@@ -571,7 +593,7 @@ onUnmounted(() => {
             <button type="button" class="confirm" @click="executeCast(pendingCast)">确认施法</button>
           </div>
         </section>
-      </div>
+      </div>  
     </Teleport>
 
     <Teleport to="body">
@@ -856,18 +878,33 @@ onUnmounted(() => {
   z-index: 3;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
+  isolation: isolate;
 }
 /* StPageFlip 翻页容器：填满 viewport，由库接管页几何 */
 .flip-book {
   position: absolute;
   inset: 0;
+  overflow: hidden;
+}
+.flip-book :deep(.stf__wrapper),
+.flip-book :deep(.stf__block) {
+  overflow: hidden;
+}
+.flip-book :deep(.stf__item) {
+  box-shadow:
+    inset 0 0 44px rgba(35, 17, 5, 0.5),
+    0 12px 26px rgba(0, 0, 0, 0.3);
 }
 .flip-page {
   position: relative;
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--page-texture) center / cover;
+  background:
+    linear-gradient(118deg, rgba(44, 24, 9, 0.28), rgba(255, 236, 172, 0.03) 42%, rgba(30, 13, 4, 0.38)),
+    var(--page-texture) center / cover;
+  box-shadow: inset 0 0 42px rgba(38, 17, 5, 0.5);
 }
 /* 初始化失败降级：普通竖向滚动，不依赖 StPageFlip */
 .flip-fallback {
@@ -882,19 +919,38 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: var(--page-texture) center / cover;
+  background:
+    radial-gradient(circle at 48% 42%, rgba(226, 190, 119, 0.04), rgba(64, 31, 9, 0.36) 78%),
+    linear-gradient(105deg, rgba(58, 29, 9, 0.2), transparent 38%, rgba(41, 17, 4, 0.28)),
+    var(--page-texture) center / cover;
+}
+.parchment-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(100deg, rgba(33, 14, 4, 0.3), rgba(255, 224, 157, 0.04) 36%, rgba(21, 8, 3, 0.34)),
+    radial-gradient(circle at 18% 10%, rgba(0, 0, 0, 0.26), transparent 34%),
+    radial-gradient(circle at 88% 86%, rgba(0, 0, 0, 0.28), transparent 42%);
+  mix-blend-mode: multiply;
 }
 .parchment-page::after {
   content: '';
   position: absolute;
   inset: 8px;
+  z-index: 3;
   pointer-events: none;
   border: 1px solid rgba(88, 61, 32, 0.26);
+  box-shadow:
+    inset 0 0 22px rgba(57, 32, 11, 0.35),
+    0 0 0 1px rgba(230, 189, 98, 0.05);
 }
 .spell-scroll {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 2;
   overflow-y: auto;
   padding: 18px 18px 28px;
   scrollbar-width: thin;
@@ -922,12 +978,13 @@ onUnmounted(() => {
 
 .spell-entry {
   position: relative;
-  min-height: 118px;
-  margin-bottom: 9px;
+  min-height: 0;
+  margin-bottom: 7px;
   overflow: hidden;
-  border: 1px solid rgba(80, 56, 30, 0.34);
+  border: 1px solid rgba(55, 34, 15, 0.46);
   border-radius: 3px;
-  background: rgba(79, 52, 22, 0.08);
+  background: rgba(235, 205, 142, 0.17);
+  box-shadow: inset 0 0 12px rgba(255, 230, 169, 0.05);
   cursor: pointer;
 }
 .spell-entry::before {
@@ -937,7 +994,46 @@ onUnmounted(() => {
   width: 4px;
   background: var(--school);
 }
-.spell-entry-content { padding: 10px 11px 10px 15px; }
+.spell-entry-content { padding: 8px 10px 8px 14px; }
+.spell-line {
+  display: grid;
+  grid-template-columns: minmax(86px, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+}
+.spell-line-name {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 6px;
+}
+.spell-line-name h2 {
+  min-width: max-content;
+  color: #150b05;
+  text-shadow: 0 1px 0 rgba(238, 205, 139, 0.36);
+  font: 700 14px var(--font-title);
+}
+.spell-line-name i {
+  overflow: hidden;
+  color: #4c2f19;
+  font-size: 10px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spell-line-meta {
+  display: flex;
+  min-width: 0;
+  justify-content: flex-end;
+  gap: 5px;
+  color: #2c1a0d;
+  font-size: 10px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.spell-line-meta span:not(.tag-concentration):not(.tag-ritual) {
+  opacity: 1;
+}
 .spell-name-row {
   display: flex;
   align-items: baseline;
@@ -965,6 +1061,18 @@ onUnmounted(() => {
 }
 .spell-tags .tag-concentration { color: #8a3e4a; border-color: rgba(138, 62, 74, 0.42); }
 .spell-tags .tag-ritual { color: #3f6a5e; border-color: rgba(63, 106, 94, 0.42); }
+.tag-concentration { color: #8a3e4a; }
+.tag-ritual { color: #225448; }
+.tag-savant {
+  color: #7b4ea0;
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(177, 140, 210, 0.15);
+  border: 1px solid rgba(177, 140, 210, 0.3);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
 .spell-entry-content p {
   display: -webkit-box;
   overflow: hidden;
@@ -979,12 +1087,14 @@ onUnmounted(() => {
 .cast-backdrop { z-index: 110; }
 .cast-modal {
   position: relative;
-  width: min(320px, 100%);
+  width: min(390px, calc(100vw - 28px));
+  max-height: min(680px, calc(100dvh - 36px));
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 22px 20px 20px;
+  align-items: stretch;
+  gap: 9px;
+  overflow: hidden;
+  padding: 22px 20px 18px;
   border: 1px solid rgba(201, 167, 76, 0.4);
   border-radius: 6px;
   color: #d7c7a2;
@@ -995,8 +1105,54 @@ onUnmounted(() => {
 @keyframes cast-reveal {
   from { opacity: 0; transform: translateY(8px); }
 }
-.cast-title { color: #efd67f; font: 700 18px var(--font-title); }
-.cast-en { margin-top: -4px; color: #93805d; font-size: 11px; }
+.cast-title {
+  color: #efd67f;
+  text-align: center;
+  font: 700 18px var(--font-title);
+}
+.cast-en {
+  margin-top: -6px;
+  color: #93805d;
+  text-align: center;
+  font-size: 11px;
+}
+.cast-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(201, 167, 76, 0.16);
+}
+.cast-meta span {
+  padding: 1px 6px;
+  border: 1px solid rgba(201, 167, 76, 0.18);
+  border-radius: 2px;
+  color: #bfa66d;
+  background: rgba(201, 167, 76, 0.05);
+  font-size: 10px;
+}
+.cast-meta .tag-concentration {
+  color: #d18991;
+  border-color: rgba(209, 137, 145, 0.25);
+}
+.cast-meta .tag-ritual {
+  color: #98cdbb;
+  border-color: rgba(152, 205, 187, 0.24);
+}
+.spell-detail-text {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 12px 13px;
+  border: 1px solid rgba(201, 167, 76, 0.22);
+  border-radius: 4px;
+  color: #eadcbc;
+  background: rgba(255, 231, 169, 0.065);
+  font-size: 12px;
+  font-weight: 560;
+  line-height: 1.68;
+  white-space: pre-line;
+}
 .magic-ring { flex: none; width: 88px; height: 88px; }
 .ring-outer,
 .ring-inner { transform-origin: center; opacity: 0.88; }
@@ -1011,6 +1167,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: stretch;
   gap: 6px;
+  padding-top: 2px;
   color: #bda875;
 }
 .cast-controls > small { text-align: center; font-size: 11px; }
@@ -1238,8 +1395,15 @@ onUnmounted(() => {
   .caster-strip { padding-inline: 6px; }
   .caster-numbers { gap: 8px; }
   .spell-scroll { padding-inline: 13px; }
-  .spell-entry { min-height: 114px; }
-  .magic-ring { width: 72px; height: 72px; }
+  .spell-entry { min-height: 0; }
+  .spell-line {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+  .spell-line-meta {
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
   .slot-footer { padding-left: 10px; }
 }
 </style>

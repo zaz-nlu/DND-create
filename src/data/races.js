@@ -345,8 +345,8 @@ const hardcodedRaces = [
             grants: {
               cantrips: [{ baseId: 'dancing-lights' }],
               leveled: [
-                { baseId: 'faerie-fire', level: 3 },
-                { baseId: 'darkness', level: 5 },
+                { baseId: 'faerie-fire', spellLevel: 1, minCharLevel: 3 },
+                { baseId: 'darkness',    spellLevel: 2, minCharLevel: 5 },
               ],
             },
           },
@@ -357,8 +357,8 @@ const hardcodedRaces = [
             grants: {
               cantripChoice: { count: 1, fromList: 'wizard' },
               leveled: [
-                { baseId: 'detect-magic', level: 3 },
-                { baseId: 'misty-step', level: 5 },
+                { baseId: 'detect-magic', spellLevel: 1, minCharLevel: 3 },
+                { baseId: 'misty-step',   spellLevel: 2, minCharLevel: 5 },
               ],
             },
           },
@@ -369,8 +369,8 @@ const hardcodedRaces = [
             grants: {
               cantrips: [{ baseId: 'druidcraft' }],
               leveled: [
-                { baseId: 'longstrider', level: 3 },
-                { baseId: 'pass-without-trace', level: 5 },
+                { baseId: 'longstrider',       spellLevel: 1, minCharLevel: 3 },
+                { baseId: 'pass-without-trace', spellLevel: 2, minCharLevel: 5 },
               ],
             },
           },
@@ -559,8 +559,8 @@ const hardcodedRaces = [
             grants: {
               cantrips: [{ baseId: 'poison-spray' }],
               leveled: [
-                { baseId: 'ray-of-sickness', level: 3 },
-                { baseId: 'hold-person', level: 5 },
+                { baseId: 'ray-of-sickness', spellLevel: 1, minCharLevel: 3 },
+                { baseId: 'hold-person',      spellLevel: 2, minCharLevel: 5 },
               ],
             },
           },
@@ -571,8 +571,8 @@ const hardcodedRaces = [
             grants: {
               cantrips: [{ baseId: 'chill-touch' }],
               leveled: [
-                { baseId: 'false-life', level: 3 },
-                { baseId: 'ray-of-enfeeblement', level: 5 },
+                { baseId: 'false-life',          spellLevel: 1, minCharLevel: 3 },
+                { baseId: 'ray-of-enfeeblement', spellLevel: 2, minCharLevel: 5 },
               ],
             },
           },
@@ -583,8 +583,8 @@ const hardcodedRaces = [
             grants: {
               cantrips: [{ baseId: 'fire-bolt' }],
               leveled: [
-                { baseId: 'hellish-rebuke', level: 3 },
-                { baseId: 'darkness', level: 5 },
+                { baseId: 'hellish-rebuke', spellLevel: 1, minCharLevel: 3 },
+                { baseId: 'darkness',        spellLevel: 2, minCharLevel: 5 },
               ],
             },
           },
