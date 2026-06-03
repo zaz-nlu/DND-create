@@ -469,7 +469,7 @@ export const builtinClasses = [
       },
     ],
     notableFeatures: [
-      { level: 2, name: '学者', nameEn: 'Scholar', desc: '从你具有熟练的奥秘、历史、自然或宗教中选择一项，获得该技能的专精。' },
+      { level: 2, name: '学者', nameEn: 'Scholar', desc: '从你具有熟练的奥秘、历史、调查、自然或宗教中选择一项，获得该技能的专精。' },
       { level: 3, name: '法师子职', nameEn: 'Wizard Subclass', desc: '选择防护师、预言师、塑能师或幻术师之一，获得3级子职特性。' },
       { level: 5, name: '记忆法术', nameEn: 'Memorize Spell', desc: '每当你完成一次短休时，可以研究法术书，将一道以施法特性准备的一环及以上法术替换为法术书中的另一道一环及以上法术。' },
       { level: 18, name: '法术精通', nameEn: 'Spell Mastery', desc: '从法术书中选择一个施法时间为动作的一环法术和一个二环法术。它们总是准备，且能不消耗法术位地以最低环施展。完成长休后可更换。' },
@@ -543,7 +543,7 @@ export const builtinClasses = [
         { id: 'skills', kind: 'skillProficiency', source: 'classSkillChoices' },
       ] },
       { level: 2, choices: [
-        { id: 'expertise-wizard-2', kind: 'expertise', count: 1, pool: ['奥秘', '历史', '自然', '宗教'] },
+        { id: 'expertise-wizard-2', kind: 'expertise', count: 1, pool: ['奥秘', '历史', '调查', '自然', '宗教'] },
       ] },
       { level: 3, choices: [{ id: 'subclass', kind: 'subclass' }] },
       { level: 4, choices: [{ id: 'feat-4', kind: 'generalFeat', minLevel: 4 }] },

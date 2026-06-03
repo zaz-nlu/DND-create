@@ -248,6 +248,19 @@ const isClassSkillValid = computed(() => {
   return classSkillChoices.value.length === classSkillCount.value
 })
 
+// 下游专精槽若限定了 pool（如法师学者限选 奥秘/历史/自然/宗教），
+// 在职业技能步骤就提示玩家：至少要从池内选一项，否则后面无法满足专精。
+const expertisePoolHint = computed(() => {
+  const pooledSlot = expertiseProgressionSlots.value.find(s => Array.isArray(s.pool) && s.pool.length)
+  if (!pooledSlot) return null
+  const options = selectedClass.value?.skillChoices?.options ?? []
+  // 池内 ∩ 职业可选技能：玩家能在职业技能步骤实际选到的项
+  const selectable = pooledSlot.pool.filter(skill => options.includes(skill))
+  if (!selectable.length) return null
+  const satisfied = classSkillChoices.value.some(skill => pooledSlot.pool.includes(skill))
+  return { skills: selectable, satisfied }
+})
+
 function toggleClassSkill(skill) {
   const current = [...classSkillChoices.value]
   const idx = current.indexOf(skill)
@@ -740,6 +753,13 @@ function goNext() {
                   <span style="color:var(--text-dim);font-size:12px">已从背景/种族/专长获得熟练的技能（{{ [...skillsProficientElsewhere].join('、') }}）已从列表移除——重复熟练不会叠加成专精。</span>
                 </template>
               </p>
+              <p
+                v-if="expertisePoolHint && !expertisePoolHint.satisfied"
+                class="step-desc expertise-pool-hint"
+              >
+                ⚠ 本职业的技能专精限选 {{ expertisePoolHint.skills.join('、') }}。
+                请至少选择其中一项，否则后续无法获得专精。
+              </p>
               <div class="step-chip-grid">
                 <button
                   v-for="skill in classSkillOptions"
@@ -748,6 +768,7 @@ function goNext() {
                   :class="['step-chip', {
                     active: classSkillChoices.includes(skill),
                     disabled: !classSkillChoices.includes(skill) && classSkillChoices.length >= classSkillCount,
+                    'pool-required': expertisePoolHint && !expertisePoolHint.satisfied && expertisePoolHint.skills.includes(skill),
                   }]"
                   @click="toggleClassSkill(skill)"
                 >{{ skill }}</button>
@@ -766,8 +787,22 @@ function goNext() {
                   <span style="color:var(--text-dim);font-size:12px">限选：{{ step.pool.join('、') }}</span>
                 </template>
               </p>
-              <div v-if="expertiseCandidates(step.id, step.pool).length === 0" class="step-desc" style="color:rgba(220,140,80,0.8)">
-                先选择职业技能，才能在此获得专精。
+              <div v-if="expertiseCandidates(step.id, step.pool).length === 0" class="expertise-empty">
+                <p class="step-desc" style="color:rgba(220,140,80,0.9);margin:0">
+                  <template v-if="step.pool">
+                    此专精限选 {{ step.pool.join('、') }}，但你目前未熟练其中任何一项。
+                    请先回到「职业技能熟练」，从中选择至少一项。
+                  </template>
+                  <template v-else>
+                    你目前还没有可用于专精的已熟练技能，请先完成职业技能熟练。
+                  </template>
+                </p>
+                <button
+                  v-if="classSkillSlot"
+                  type="button"
+                  class="expertise-jump"
+                  @click="focusStep('class-skills')"
+                >前往职业技能熟练 ›</button>
               </div>
               <div v-else class="step-chip-grid">
                 <button
@@ -1958,6 +1993,49 @@ function goNext() {
   color: var(--text-dim);
   opacity: 0.42;
   pointer-events: none;
+}
+
+/* 学者等限定池专精：在职业技能步骤高亮池内必选项 */
+.step-chip.pool-required:not(.active) {
+  border-color: rgba(220, 140, 80, 0.6);
+  background: rgba(220, 140, 80, 0.1);
+  color: #e8b890;
+}
+
+.expertise-pool-hint {
+  margin-top: -2px;
+  margin-bottom: 12px;
+  color: rgba(220, 140, 80, 0.92);
+  font-size: 12.5px;
+}
+
+/* 专精候选为空时的引导块 */
+.expertise-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(220, 140, 80, 0.28);
+  border-radius: var(--r);
+  background: rgba(220, 140, 80, 0.06);
+}
+
+.expertise-jump {
+  align-self: flex-start;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid rgba(201, 168, 76, 0.4);
+  border-radius: 999px;
+  background: rgba(201, 168, 76, 0.1);
+  color: var(--gold-light);
+  font-family: var(--font-title);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.expertise-jump:hover {
+  border-color: var(--gold);
+  background: rgba(201, 168, 76, 0.18);
 }
 
 .step-status {

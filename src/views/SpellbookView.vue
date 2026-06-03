@@ -20,6 +20,7 @@ import { classes } from '../data/classes.js'
 import { findSpellByBaseId, findSpellById } from '../data/spells.js'
 import { character, setSpellSlotUsed } from '../store/character.js'
 import { getAbilityTotalRows } from '../utils/abilityTotals.js'
+import { useArcaneFlame } from '../composables/useArcaneFlame.js'
 
 const router = useRouter()
 const currentClass = computed(() => classes.find(item => item.id === character.class.id) ?? null)
@@ -122,11 +123,16 @@ const showRecovery = ref(false)
 const recoverySelections = reactive({})
 const showRestConfirm = ref(false)
 const showRestDone = ref(false)
+const ritualToast = ref(null)
 const burningSlotLevel = ref(null)
 const flipFrame = ref(null)
+const flameCanvas = ref(null)
+const gemRefs = ref([])
+const { enabled: flameEnabled, igniteGem, igniteSweep } = useArcaneFlame(flameCanvas)
 let flipTimer = null
 let burnTimer = null
 let restTimer = null
+let ritualTimer = null
 
 const FLIP_FRAMES = [flipFrame1, flipFrame2, flipFrame3, flipFrame4]
 const LEVEL_IMAGES = {
@@ -249,16 +255,45 @@ function executeCast(request) {
   if (mode === 'slot') {
     if (slotRemaining(slotLevel) <= 0) return
     const used = Number(character.spells.slotsUsed?.[String(slotLevel)]) || 0
+    // 记录“即将被烧掉那颗宝石”的索引（消耗前的剩余数 = 该颗的 1-based 序号）。
+    const burnedGemIndex = slotRemaining(slotLevel)
     setSpellSlotUsed(slotLevel, used + 1)
     burningSlotLevel.value = slotLevel
     if (burnTimer) clearTimeout(burnTimer)
     burnTimer = setTimeout(() => {
       burningSlotLevel.value = null
     }, 720)
+    // canvas 可用时点燃魔法火焰；否则保留 CSS gem-burn 降级。
+    if (flameEnabled.value) triggerSlotFlame(slotLevel, burnedGemIndex)
+  }
+  // 仪式施法（2024）：不消耗法术位，但施法时间额外 +10 分钟。
+  // 仅给出明确反馈，不做倒计时（由桌面叙事掌握时间）。
+  if (mode === 'ritual') {
+    ritualToast.value = spell.name
+    if (ritualTimer) clearTimeout(ritualTimer)
+    ritualTimer = setTimeout(() => {
+      ritualToast.value = null
+    }, 2600)
   }
   if (spell.concentration) runtime.concentratingOn = spell.baseId
   activeSpell.value = null
   pendingCast.value = null
+}
+
+// 点燃法术位火焰：先在被烧宝石上烧一团小火，若该环已耗尽则触发底部蔓延。
+// burnedGemIndex 为 1-based（消耗前的剩余数）。
+function triggerSlotFlame(slotLevel, burnedGemIndex) {
+  // 宝石只在“当前展示环”才渲染，能拿到坐标就精准点燃；拿不到则给个兜底位置。
+  const gemEl = gemRefs.value[burnedGemIndex - 1]
+  if (gemEl) {
+    const rect = gemEl.getBoundingClientRect()
+    igniteGem(rect.left + rect.width / 2, rect.top + rect.height / 2)
+  } else if (flameCanvas.value) {
+    const rect = flameCanvas.value.getBoundingClientRect()
+    igniteGem(rect.left + rect.width * 0.2, rect.bottom - 60)
+  }
+  // 该环法术位全部耗尽 → 底部火焰向上蔓延。
+  if (slotRemaining(slotLevel) === 0) igniteSweep()
 }
 
 function endConcentration() {
@@ -324,6 +359,7 @@ onUnmounted(() => {
   if (flipTimer) clearInterval(flipTimer)
   if (burnTimer) clearTimeout(burnTimer)
   if (restTimer) clearTimeout(restTimer)
+  if (ritualTimer) clearTimeout(ritualTimer)
 })
 </script>
 
@@ -342,6 +378,7 @@ onUnmounted(() => {
     <section v-else class="book-shell">
       <div class="book-spine"></div>
       <div v-if="flipFrame" class="flip-overlay" :style="{ backgroundImage: `url(${flipFrame})` }"></div>
+      <canvas ref="flameCanvas" class="flame-overlay" aria-hidden="true"></canvas>
 
       <header class="book-header">
         <button class="back-button" type="button" title="返回角色卡" @click="router.push('/sheet')">←</button>
@@ -451,9 +488,11 @@ onUnmounted(() => {
                       </button>
                     </div>
                     <small v-if="upcastHint(spell)" class="upcast-hint">{{ upcastHint(spell) }}</small>
-                    <small v-if="!castableSlotLevels.length" class="no-slots">没有可用法术位</small>
+                    <small v-if="!castableSlotLevels.length && !spell.ritual" class="no-slots">没有可用法术位</small>
+                    <small v-else-if="!castableSlotLevels.length && spell.ritual" class="ritual-only">无可用法术位，可改用仪式施法</small>
+                    <small v-if="spell.ritual" class="ritual-hint">仪式：不消耗法术位，施法 +10 分钟</small>
                     <div class="cast-actions">
-                      <button v-if="spell.ritual" type="button" class="ritual-cast" @click="prepareCast(spell, 'ritual')">仪式</button>
+                      <button v-if="spell.ritual" type="button" class="ritual-cast" @click="prepareCast(spell, 'ritual')">仪式施展</button>
                       <button
                         v-if="castableSlotLevels.length"
                         class="primary-cast"
@@ -481,8 +520,9 @@ onUnmounted(() => {
             v-for="index in slotTotal(currentLevel)"
             v-else
             :key="index"
+            :ref="el => { if (el) gemRefs[index - 1] = el }"
             :class="['gem', index <= slotRemaining(currentLevel) ? gemColor(currentLevel) : 'empty', {
-              burning: burningSlotLevel === currentLevel && index === slotRemaining(currentLevel) + 1,
+              burning: !flameEnabled && burningSlotLevel === currentLevel && index === slotRemaining(currentLevel) + 1,
             }]"
           ></i>
         </div>
@@ -559,6 +599,13 @@ onUnmounted(() => {
       <div v-if="showRestDone" class="rest-done">
         <strong>长休结束</strong>
         <span>法术位已恢复</span>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="ritualToast" class="ritual-done">
+        <strong>以仪式施展 · {{ ritualToast }}</strong>
+        <span>不消耗法术位 · 施法时间 +10 分钟</span>
       </div>
     </Teleport>
   </main>
@@ -647,6 +694,14 @@ onUnmounted(() => {
   0% { opacity: 0; }
   30% { opacity: 1; }
   100% { opacity: 0.92; }
+}
+.flame-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
 .book-header {
@@ -945,6 +1000,8 @@ onUnmounted(() => {
   -webkit-line-clamp: 2;
 }
 .no-slots { color: #c97979; }
+.ritual-only { color: #9dd2bd; }
+.ritual-hint { color: #7fb0a4; font-size: 10px; }
 .cast-actions { display: flex; gap: 6px; justify-content: flex-end; }
 .cast-actions button,
 .primary-cast {
@@ -1111,6 +1168,30 @@ onUnmounted(() => {
 @keyframes rest-fade {
   0%, 100% { opacity: 0; }
   18%, 76% { opacity: 1; }
+}
+
+.ritual-done {
+  position: fixed;
+  left: 50%;
+  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  z-index: 120;
+  display: grid;
+  gap: 3px;
+  justify-items: center;
+  padding: 12px 22px;
+  border: 1px solid rgba(121, 182, 173, 0.5);
+  border-radius: 6px;
+  color: #d6efe6;
+  background: rgba(20, 36, 33, 0.95);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55);
+  transform: translateX(-50%);
+  animation: ritual-fade 2.6s ease both;
+}
+.ritual-done strong { color: #9fdcc8; font: 600 13px var(--font-title); }
+.ritual-done span { color: #87b4a8; font-size: 11px; }
+@keyframes ritual-fade {
+  0%, 100% { opacity: 0; transform: translate(-50%, 8px); }
+  12%, 82% { opacity: 1; transform: translate(-50%, 0); }
 }
 
 @media (max-width: 380px) {
