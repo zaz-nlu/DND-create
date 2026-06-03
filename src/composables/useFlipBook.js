@@ -25,6 +25,10 @@ export function useFlipBook(containerRef, { pageSelector, onFlip, onFlipStart })
     if (!pages.length) return
     try {
       pageFlip = new PageFlip(el, {
+        // width/height 是必填基准比例；size:'stretch' 时在 min/max 间自适应容器。
+        // 缺省会抛 "Invalid width or height" 并导致初始化失败。
+        width: 390,
+        height: 600,
         size: 'stretch',
         minWidth: 280,
         maxWidth: 600,
@@ -37,7 +41,7 @@ export function useFlipBook(containerRef, { pageSelector, onFlip, onFlipStart })
         disableFlipByClick: true, // 点法术卡不触发翻页，只拖拽/书签翻
         flippingTime: 700,
       })
-      pageFlip.loadFromHtml(pages)
+      pageFlip.loadFromHTML(pages)
       pageFlip.on('flip', e => {
         currentPage.value = e.data
         onFlip?.(e.data)
