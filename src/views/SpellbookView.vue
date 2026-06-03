@@ -3,10 +3,6 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import coverTexture from '../assets/images/fengmian.png'
 import pageTexture from '../assets/images/page.png'
-import flipFrame1 from '../assets/images/fanye1.png'
-import flipFrame2 from '../assets/images/fanye2.png'
-import flipFrame3 from '../assets/images/fanye3.png'
-import flipFrame4 from '../assets/images/fanye4.png'
 import levelOneImage from '../assets/images/ihuan.png'
 import levelTwoImage from '../assets/images/2.png'
 import levelThreeImage from '../assets/images/3.png'
@@ -21,6 +17,8 @@ import { findSpellByBaseId, findSpellById } from '../data/spells.js'
 import { character, setSpellSlotUsed } from '../store/character.js'
 import { getAbilityTotalRows } from '../utils/abilityTotals.js'
 import { useArcaneFlame } from '../composables/useArcaneFlame.js'
+import { useFlipBook } from '../composables/useFlipBook.js'
+import { computeFlipPages } from '../composables/spellbookPages.js'
 
 const router = useRouter()
 const currentClass = computed(() => classes.find(item => item.id === character.class.id) ?? null)
@@ -74,13 +72,35 @@ const availableTabs = computed(() => {
 })
 
 const currentLevel = ref(0)
-const currentSpells = computed(() =>
-  currentLevel.value === 0 ? preparedCantrips.value : preparedByLevel.value[currentLevel.value] ?? []
-)
 
 watch(availableTabs, tabs => {
   if (!tabs.includes(currentLevel.value)) currentLevel.value = tabs[0] ?? 0
 }, { immediate: true })
+
+// ── 真实翻页（StPageFlip）─────────────────────────────────────────────
+// 翻页容器 DOM
+const bookRef = ref(null)
+
+// 进入页面时快照页集，之后冻结：施法/长休/奥术回想只改页内数据，不增删页节点，
+// 避免打断 StPageFlip 几何。耗尽的环页仍保留（显示空/已耗尽）。
+const flipPages = computeFlipPages({
+  hasCantrips: preparedCantrips.value.length > 0,
+  slotsByLevel: Object.fromEntries(slotLevels.value.map(lv => [lv, slotTotal(lv)])),
+  preparedCountByLevel: Object.fromEntries(
+    Array.from({ length: 9 }, (_, i) => i + 1).map(lv => [lv, preparedByLevel.value[lv]?.length || 0])
+  ),
+})
+
+function pageSpells(level) {
+  return level === 0 ? preparedCantrips.value : (preparedByLevel.value[level] ?? [])
+}
+
+const { currentPage, ok: flipOk, init: initFlip, destroy: destroyFlip, flipTo } =
+  useFlipBook(bookRef, {
+    pageSelector: '.flip-page',
+    onFlip: index => { currentLevel.value = flipPages[index] ?? 0 },
+    onFlipStart: () => { activeSpell.value = null },
+  })
 
 const runtime = reactive({
   concentratingOn: null,
@@ -125,16 +145,13 @@ const showRestConfirm = ref(false)
 const showRestDone = ref(false)
 const ritualToast = ref(null)
 const burningSlotLevel = ref(null)
-const flipFrame = ref(null)
 const flameCanvas = ref(null)
 const gemRefs = ref([])
 const { enabled: flameEnabled, igniteGem, igniteSweep } = useArcaneFlame(flameCanvas)
-let flipTimer = null
 let burnTimer = null
 let restTimer = null
 let ritualTimer = null
 
-const FLIP_FRAMES = [flipFrame1, flipFrame2, flipFrame3, flipFrame4]
 const LEVEL_IMAGES = {
   1: levelOneImage,
   2: levelTwoImage,
@@ -202,27 +219,18 @@ const castableSlotLevels = computed(() => {
   return slotLevels.value.filter(level => level >= activeSpell.value.level && slotRemaining(level) > 0)
 })
 
-function playFlip() {
-  if (flipTimer) clearInterval(flipTimer)
-  let index = 0
-  flipFrame.value = FLIP_FRAMES[index]
-  flipTimer = setInterval(() => {
-    index += 1
-    if (index >= FLIP_FRAMES.length) {
-      clearInterval(flipTimer)
-      flipTimer = null
-      flipFrame.value = null
-      return
-    }
-    flipFrame.value = FLIP_FRAMES[index]
-  }, 115)
-}
-
-function switchLevel(level) {
+// 书签点击：翻到该环阶页。翻页成功则由 StPageFlip 驱动 currentLevel；
+// 降级（翻页未初始化）时直接切 currentLevel（滚动列表）。
+function goToLevel(level) {
   if (level === currentLevel.value) return
-  playFlip()
   activeSpell.value = null
-  currentLevel.value = level
+  const index = flipPages.indexOf(level)
+  if (index < 0) return
+  if (flipOk.value) {
+    flipTo(index, { animated: true }) // onFlip 会同步 currentLevel
+  } else {
+    currentLevel.value = level
+  }
 }
 
 function openSpell(spell) {
@@ -349,14 +357,11 @@ function confirmLongRest() {
 
 onMounted(() => {
   loadRuntime()
-  FLIP_FRAMES.forEach(src => {
-    const image = new Image()
-    image.src = src
-  })
+  initFlip()
 })
 
 onUnmounted(() => {
-  if (flipTimer) clearInterval(flipTimer)
+  destroyFlip()
   if (burnTimer) clearTimeout(burnTimer)
   if (restTimer) clearTimeout(restTimer)
   if (ritualTimer) clearTimeout(ritualTimer)
@@ -377,7 +382,6 @@ onUnmounted(() => {
 
     <section v-else class="book-shell">
       <div class="book-spine"></div>
-      <div v-if="flipFrame" class="flip-overlay" :style="{ backgroundImage: `url(${flipFrame})` }"></div>
       <canvas ref="flameCanvas" class="flame-overlay" aria-hidden="true"></canvas>
 
       <header class="book-header">
@@ -398,7 +402,7 @@ onUnmounted(() => {
 
       <nav class="bookmark-nav" aria-label="法术环阶">
         <button
-          v-for="level in availableTabs"
+          v-for="level in flipPages"
           :key="level"
           type="button"
           :class="['bookmark', {
@@ -406,7 +410,7 @@ onUnmounted(() => {
             exhausted: level > 0 && slotTotal(level) > 0 && slotRemaining(level) === 0,
             burning: burningSlotLevel === level,
           }]"
-          @click="switchLevel(level)"
+          @click="goToLevel(level)"
         >
           <span v-if="level === 0" class="cantrip-rune">戏</span>
           <img v-else :src="LEVEL_IMAGES[level]" :alt="`${level}环`">
@@ -422,90 +426,51 @@ onUnmounted(() => {
       </div>
 
       <section class="page-viewport">
-        <div class="parchment-page">
-          <div class="spell-scroll">
-            <div class="section-title">
-              <span></span>
-              <strong>{{ CHINESE_LEVELS[currentLevel] }}{{ currentLevel ? '法术' : '' }}</strong>
-              <span></span>
-            </div>
-
-            <div v-if="!currentSpells.length" class="empty-state">
-              <b>∴</b>
-              <p>{{ currentLevel === 0 ? '尚未选择法师戏法' : '此环暂无已准备法术' }}</p>
-            </div>
-
-            <article
-              v-for="spell in currentSpells"
-              :key="spell.id"
-              :class="['spell-entry', { open: activeSpell?.id === spell.id }]"
-              :style="{ '--school': schoolColor(spell.school) }"
-              @click="openSpell(spell)"
-            >
-              <div class="spell-entry-content">
-                <div class="spell-name-row">
-                  <h2>{{ spell.name }}</h2>
-                  <i>{{ spell.nameEn }}</i>
+        <div ref="bookRef" :class="['flip-book', { 'flip-fallback': !flipOk }]">
+          <section
+            v-for="level in flipPages"
+            :key="level"
+            class="flip-page"
+            data-density="soft"
+          >
+            <div class="parchment-page">
+              <div class="spell-scroll">
+                <div class="section-title">
+                  <span></span>
+                  <strong>{{ CHINESE_LEVELS[level] }}{{ level ? '法术' : '' }}</strong>
+                  <span></span>
                 </div>
-                <div class="spell-tags">
-                  <span>{{ spell.school }}</span>
-                  <span v-if="spell.castingTime">{{ spell.castingTime }}</span>
-                  <span v-if="spell.range">{{ spell.range }}</span>
-                  <span v-if="spell.concentration" class="tag-concentration">专注</span>
-                  <span v-if="spell.ritual" class="tag-ritual">仪式</span>
+
+                <div v-if="!pageSpells(level).length" class="empty-state">
+                  <b>∴</b>
+                  <p>{{ level === 0 ? '尚未选择法师戏法' : '此环暂无已准备法术' }}</p>
                 </div>
-                <p>{{ shortDescription(spell) }}</p>
-              </div>
 
-              <div v-if="activeSpell?.id === spell.id" class="cast-panel" @click.stop>
-                <svg class="magic-ring" viewBox="0 0 80 80" fill="none" aria-hidden="true">
-                  <g class="ring-outer">
-                    <circle cx="40" cy="40" r="34" :stroke="schoolRingColor(spell.school)" stroke-width="1.5" stroke-dasharray="8 4"/>
-                    <circle cx="40" cy="40" r="29" :stroke="schoolRingColor(spell.school)" stroke-width="0.6"/>
-                  </g>
-                  <g class="ring-inner">
-                    <circle cx="40" cy="40" r="20" :stroke="schoolRingColor(spell.school)" stroke-width="1" stroke-dasharray="5 3"/>
-                  </g>
-                  <circle cx="40" cy="40" r="9" :fill="schoolRingColor(spell.school)" class="ring-core"/>
-                  <circle cx="40" cy="40" r="5" :fill="schoolRingColor(spell.school)"/>
-                </svg>
-
-                <div class="cast-controls">
-                  <template v-if="spell.level === 0">
-                    <small>戏法不消耗法术位</small>
-                    <button class="primary-cast" type="button" @click="prepareCast(spell, 'cantrip')">施法</button>
-                  </template>
-                  <template v-else>
-                    <div class="slot-options">
-                      <button
-                        v-for="level in castableSlotLevels"
-                        :key="level"
-                        type="button"
-                        :class="{ selected: selectedSlotLevel === level }"
-                        @click="selectedSlotLevel = level"
-                      >
-                        {{ level }}环 <small>{{ slotRemaining(level) }}</small>
-                      </button>
+                <article
+                  v-for="spell in pageSpells(level)"
+                  :key="spell.id"
+                  :class="['spell-entry', { open: activeSpell?.id === spell.id }]"
+                  :style="{ '--school': schoolColor(spell.school) }"
+                  @click="openSpell(spell)"
+                >
+                  <div class="spell-entry-content">
+                    <div class="spell-name-row">
+                      <h2>{{ spell.name }}</h2>
+                      <i>{{ spell.nameEn }}</i>
                     </div>
-                    <small v-if="upcastHint(spell)" class="upcast-hint">{{ upcastHint(spell) }}</small>
-                    <small v-if="!castableSlotLevels.length && !spell.ritual" class="no-slots">没有可用法术位</small>
-                    <small v-else-if="!castableSlotLevels.length && spell.ritual" class="ritual-only">无可用法术位，可改用仪式施法</small>
-                    <small v-if="spell.ritual" class="ritual-hint">仪式：不消耗法术位，施法 +10 分钟</small>
-                    <div class="cast-actions">
-                      <button v-if="spell.ritual" type="button" class="ritual-cast" @click="prepareCast(spell, 'ritual')">仪式施展</button>
-                      <button
-                        v-if="castableSlotLevels.length"
-                        class="primary-cast"
-                        type="button"
-                        @click="prepareCast(spell)"
-                      >施法</button>
+                    <div class="spell-tags">
+                      <span>{{ spell.school }}</span>
+                      <span v-if="spell.castingTime">{{ spell.castingTime }}</span>
+                      <span v-if="spell.range">{{ spell.range }}</span>
+                      <span v-if="spell.concentration" class="tag-concentration">专注</span>
+                      <span v-if="spell.ritual" class="tag-ritual">仪式</span>
                     </div>
-                  </template>
-                </div>
-                <button class="close-panel" type="button" title="关闭" @click="activeSpell = null">×</button>
+                    <p>{{ shortDescription(spell) }}</p>
+                  </div>
+                </article>
               </div>
-            </article>
-          </div>
+            </div>
+          </section>
         </div>
       </section>
 
@@ -536,6 +501,62 @@ onUnmounted(() => {
         </div>
       </footer>
     </section>
+
+    <Teleport to="body">
+      <div v-if="activeSpell" class="modal-backdrop cast-backdrop" @click.self="activeSpell = null">
+        <section class="cast-modal" :style="{ '--ring': schoolRingColor(activeSpell.school) }">
+          <button class="close-panel" type="button" title="关闭" @click="activeSpell = null">×</button>
+
+          <svg class="magic-ring" viewBox="0 0 80 80" fill="none" aria-hidden="true">
+            <g class="ring-outer">
+              <circle cx="40" cy="40" r="34" :stroke="schoolRingColor(activeSpell.school)" stroke-width="1.5" stroke-dasharray="8 4"/>
+              <circle cx="40" cy="40" r="29" :stroke="schoolRingColor(activeSpell.school)" stroke-width="0.6"/>
+            </g>
+            <g class="ring-inner">
+              <circle cx="40" cy="40" r="20" :stroke="schoolRingColor(activeSpell.school)" stroke-width="1" stroke-dasharray="5 3"/>
+            </g>
+            <circle cx="40" cy="40" r="9" :fill="schoolRingColor(activeSpell.school)" class="ring-core"/>
+            <circle cx="40" cy="40" r="5" :fill="schoolRingColor(activeSpell.school)"/>
+          </svg>
+
+          <h2 class="cast-title">{{ activeSpell.name }}</h2>
+          <p class="cast-en">{{ activeSpell.nameEn }}</p>
+
+          <div class="cast-controls">
+            <template v-if="activeSpell.level === 0">
+              <small>戏法不消耗法术位</small>
+              <button class="primary-cast" type="button" @click="prepareCast(activeSpell, 'cantrip')">施法</button>
+            </template>
+            <template v-else>
+              <div class="slot-options">
+                <button
+                  v-for="level in castableSlotLevels"
+                  :key="level"
+                  type="button"
+                  :class="{ selected: selectedSlotLevel === level }"
+                  @click="selectedSlotLevel = level"
+                >
+                  {{ level }}环 <small>{{ slotRemaining(level) }}</small>
+                </button>
+              </div>
+              <small v-if="upcastHint(activeSpell)" class="upcast-hint">{{ upcastHint(activeSpell) }}</small>
+              <small v-if="!castableSlotLevels.length && !activeSpell.ritual" class="no-slots">没有可用法术位</small>
+              <small v-else-if="!castableSlotLevels.length && activeSpell.ritual" class="ritual-only">无可用法术位，可改用仪式施法</small>
+              <small v-if="activeSpell.ritual" class="ritual-hint">仪式：不消耗法术位，施法 +10 分钟</small>
+              <div class="cast-actions">
+                <button v-if="activeSpell.ritual" type="button" class="ritual-cast" @click="prepareCast(activeSpell, 'ritual')">仪式施展</button>
+                <button
+                  v-if="castableSlotLevels.length"
+                  class="primary-cast"
+                  type="button"
+                  @click="prepareCast(activeSpell)"
+                >施法</button>
+              </div>
+            </template>
+          </div>
+        </section>
+      </div>
+    </Teleport>
 
     <Teleport to="body">
       <div v-if="pendingCast" class="modal-backdrop" @click.self="pendingCast = null">
@@ -681,19 +702,6 @@ onUnmounted(() => {
   z-index: 6;
   width: 4px;
   background: linear-gradient(transparent, #6f572a, var(--brass), #6f572a, transparent);
-}
-.flip-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 20;
-  pointer-events: none;
-  background: center / cover no-repeat;
-  animation: flip-fade 0.48s ease both;
-}
-@keyframes flip-fade {
-  0% { opacity: 0; }
-  30% { opacity: 1; }
-  100% { opacity: 0.92; }
 }
 .flame-overlay {
   position: absolute;
@@ -849,6 +857,27 @@ onUnmounted(() => {
   flex: 1;
   min-height: 0;
 }
+/* StPageFlip 翻页容器：填满 viewport，由库接管页几何 */
+.flip-book {
+  position: absolute;
+  inset: 0;
+}
+.flip-page {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--page-texture) center / cover;
+}
+/* 初始化失败降级：普通竖向滚动，不依赖 StPageFlip */
+.flip-fallback {
+  overflow-y: auto;
+}
+.flip-fallback .flip-page {
+  height: auto;
+  min-height: 60%;
+  border-bottom: 1px solid rgba(88, 61, 32, 0.26);
+}
 .parchment-page {
   position: absolute;
   inset: 0;
@@ -946,21 +975,29 @@ onUnmounted(() => {
   -webkit-line-clamp: 3;
 }
 
-.cast-panel {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
+/* 施法 Teleport 居中弹窗（脱离翻页 DOM，不被翻页几何裁剪） */
+.cast-backdrop { z-index: 110; }
+.cast-modal {
+  position: relative;
+  width: min(320px, 100%);
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 9px 10px;
-  background: rgba(11, 10, 14, 0.94);
+  padding: 22px 20px 20px;
+  border: 1px solid rgba(201, 167, 76, 0.4);
+  border-radius: 6px;
+  color: #d7c7a2;
+  background: #14110d;
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.6);
   animation: cast-reveal 0.2s ease;
 }
 @keyframes cast-reveal {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(8px); }
 }
-.magic-ring { flex: 0 0 70px; width: 70px; height: 70px; }
+.cast-title { color: #efd67f; font: 700 18px var(--font-title); }
+.cast-en { margin-top: -4px; color: #93805d; font-size: 11px; }
+.magic-ring { flex: none; width: 88px; height: 88px; }
 .ring-outer,
 .ring-inner { transform-origin: center; opacity: 0.88; }
 .ring-outer { animation: ring-spin 3.2s linear infinite; }
@@ -970,17 +1007,18 @@ onUnmounted(() => {
 @keyframes core-pulse { 50% { opacity: 0.45; transform: scale(1.25); transform-origin: center; } }
 .cast-controls {
   display: flex;
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   flex-direction: column;
+  align-items: stretch;
   gap: 6px;
   color: #bda875;
 }
-.cast-controls > small { font-size: 10px; }
+.cast-controls > small { text-align: center; font-size: 11px; }
 .slot-options {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
+  justify-content: center;
 }
 .slot-options button {
   min-width: 44px;
@@ -1002,7 +1040,7 @@ onUnmounted(() => {
 .no-slots { color: #c97979; }
 .ritual-only { color: #9dd2bd; }
 .ritual-hint { color: #7fb0a4; font-size: 10px; }
-.cast-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.cast-actions { display: flex; gap: 6px; justify-content: center; }
 .cast-actions button,
 .primary-cast {
   min-height: 32px;
@@ -1201,8 +1239,7 @@ onUnmounted(() => {
   .caster-numbers { gap: 8px; }
   .spell-scroll { padding-inline: 13px; }
   .spell-entry { min-height: 114px; }
-  .magic-ring { flex-basis: 58px; width: 58px; height: 58px; }
-  .cast-panel { gap: 6px; padding-inline: 7px; }
+  .magic-ring { width: 72px; height: 72px; }
   .slot-footer { padding-left: 10px; }
 }
 </style>
